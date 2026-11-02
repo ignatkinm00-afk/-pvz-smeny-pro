@@ -1,0 +1,64 @@
+name: Build & Release Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Скачивание кода репозитория
+        uses: actions/checkout@v4
+
+      - name: Установка Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Установка Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Установка пакетов Capacitor и генератора иконок
+        run: npm install
+
+      - name: Создание Android-проекта
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+
+      - name: Генерация кастомной иконки и Splash-экрана для Android
+        run: |
+          npx capacitor-assets generate --android --iconBackgroundColor '#0F172A' --iconBackgroundColorDark '#0F172A' --splashBackgroundColor '#0F172A' --splashBackgroundColorDark '#0F172A'
+
+      - name: Сборка APK файла
+        working-directory: ./android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../PVZ-Smeny-PRO.apk
+
+      - name: Загрузка APK в раздел Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PVZ-Smeny-PRO-APK
+          path: PVZ-Smeny-PRO.apk
+
+      - name: Авто-публикация APK в раздел Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "ПВЗ Смены PRO — Актуальная сборка APK"
+          body: "Готовый установочный файл **PVZ-Smeny-PRO.apk** для Android с кастомной иконкой (Управляющий + Оператор ПВЗ)."
+          files: PVZ-Smeny-PRO.apk
+          prerelease: false
