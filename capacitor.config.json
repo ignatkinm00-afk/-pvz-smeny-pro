@@ -1,0 +1,6 @@
+{
+  "appId": "ru.maximeze.pvzshifts",
+  "appName": "ПВЗ Смены PRO",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}

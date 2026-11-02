@@ -1,0 +1,2695 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#090d16">
+    <title>ПВЗ Смены PRO — Управление графиком и ЗП</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts: Plus Jakarta Sans & Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --brand-from: #a855f7;
+            --brand-to: #6366f1;
+            --brand-glow: rgba(168, 85, 247, 0.28);
+            --spring-easing: cubic-bezier(0.22, 1, 0.36, 1);
+            --bounce-easing: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        input, textarea {
+            user-select: text;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior-y: none;
+            background-color: #050811;
+        }
+
+        /* Hide scrollbars */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Dynamic Ambient Header Glow */
+        .ambient-glow {
+            background: radial-gradient(circle at 50% -10%, var(--brand-glow), transparent 72%);
+            transition: background 0.6s ease;
+        }
+
+        .brand-gradient-bg {
+            background: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+            transition: all 0.4s ease;
+        }
+
+        /* Glassmorphism cards */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .dark .glass-card {
+            background: rgba(17, 24, 39, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border-top: 1px solid rgba(226, 232, 240, 0.85);
+        }
+        .dark .glass-nav {
+            background: rgba(11, 15, 25, 0.86);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Animations */
+        @keyframes cellCascade {
+            0% { opacity: 0; transform: translateY(12px) scale(0.92); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-cell {
+            animation: cellCascade 0.38s var(--spring-easing) backwards;
+        }
+
+        @keyframes popStamp {
+            0% { transform: scale(0.8); }
+            50% { transform: scale(1.09); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop {
+            animation: popStamp 0.32s var(--bounce-easing) forwards;
+        }
+
+        @keyframes tabEnter {
+            0% { opacity: 0; transform: translateY(10px) scale(0.985); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .tab-view-enter {
+            animation: tabEnter 0.34s var(--spring-easing) forwards;
+        }
+
+        @keyframes sheetUp {
+            0% { transform: translateY(100%); opacity: 0.4; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .sheet-enter {
+            animation: sheetUp 0.38s var(--spring-easing) forwards;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.45); }
+            50% { box-shadow: 0 0 0 8px rgba(168, 85, 247, 0); }
+        }
+        .pulse-active {
+            animation: pulseGlow 2s infinite;
+        }
+
+        /* Calendar 7-col grid */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+        }
+
+        /* Tactile press effect */
+        .tactile {
+            transition: transform 0.16s var(--spring-easing), box-shadow 0.2s ease, background-color 0.2s ease;
+        }
+        .tactile:active {
+            transform: scale(0.94);
+        }
+
+        /* Shimmer effect */
+        @keyframes shimmerMove {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .shimmer-bar::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+            animation: shimmerMove 2.4s infinite;
+        }
+
+        /* Floating Orbs for Onboarding */
+        @keyframes floatOrb {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(15px, -20px) scale(1.1); }
+        }
+        .orb-animate {
+            animation: floatOrb 6s ease-in-out infinite;
+        }
+
+        /* Employee Own Shift Highlight */
+        .my-shift-glow {
+            box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.7), 0 8px 20px -4px rgba(168, 85, 247, 0.35);
+        }
+    </style>
+</head>
+<body class="bg-slate-200 dark:bg-[#050811] text-slate-900 dark:text-slate-100 min-h-screen flex justify-center items-start sm:py-4 selection:bg-fuchsia-500 selection:text-white transition-colors duration-300">
+
+    <!-- Confetti Canvas Overlay -->
+    <canvas id="confettiCanvas" class="fixed inset-0 pointer-events-none z-[100]"></canvas>
+
+    <!-- ========================================================== -->
+    <!-- FIRST-LAUNCH ROLE ONBOARDING & ROLE SWITCHER OVERLAY       -->
+    <!-- ========================================================== -->
+    <div id="roleOnboardingOverlay" class="fixed inset-0 z-[80] bg-[#060913]/95 backdrop-blur-2xl hidden items-center justify-center p-4 overflow-y-auto">
+        <!-- Decorative Neon Orbs -->
+        <div class="fixed top-12 left-8 w-64 h-64 rounded-full bg-purple-600/25 blur-[90px] pointer-events-none orb-animate"></div>
+        <div class="fixed bottom-12 right-8 w-64 h-64 rounded-full bg-blue-500/20 blur-[90px] pointer-events-none orb-animate" style="animation-delay: -3s"></div>
+
+        <div class="relative z-10 w-full max-w-[420px] my-auto space-y-5 text-white py-4">
+            <!-- App Hero Header -->
+            <div class="text-center space-y-2">
+                <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-fuchsia-600 via-purple-600 to-indigo-500 mx-auto flex items-center justify-center shadow-2xl shadow-purple-500/40 border border-white/20">
+                    <i class="fa-solid fa-boxes-stacked text-2xl text-white"></i>
+                </div>
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-[10px] font-extrabold uppercase tracking-widest text-purple-300">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Wildberries • Ozon • Яндекс Маркет
+                </div>
+                <h1 class="text-2xl font-black tracking-tight">Добро пожаловать в ПВЗ Смены PRO</h1>
+                <p class="text-xs text-slate-300 max-w-xs mx-auto leading-relaxed">
+                    Выберите, как вы хотите использовать приложение на этом телефоне. Вы сможете переключить режим в любой момент в верхней панели.
+                </p>
+            </div>
+
+            <!-- Role Card 1: Manager / Owner -->
+            <div onclick="selectRoleManager()" class="tactile cursor-pointer group relative rounded-3xl p-4 bg-gradient-to-br from-purple-900/60 via-slate-900/90 to-indigo-950/80 border-2 border-purple-500/50 hover:border-purple-400 shadow-xl shadow-purple-950/50 transition-all">
+                <div class="flex items-start gap-3.5">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center text-white text-xl shrink-0 shadow-lg shadow-purple-500/30">
+                        <i class="fa-solid fa-crown"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200 border border-purple-400/30">Полный доступ</span>
+                            <i class="fa-solid fa-arrow-right text-purple-300 group-hover:translate-x-1 transition-transform"></i>
+                        </div>
+                        <h2 class="text-base font-black mt-1.5">Я Управляющий / Владелец ПВЗ</h2>
+                        <p class="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                            Составление графика в 1 тап, управление ставками, премии и штрафы, контроль общего ФОТ и выплата зарплаты.
+                        </p>
+                        <div class="flex flex-wrap gap-1.5 mt-2.5">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-white/10 text-slate-200">🖌 Быстрая кисть</span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-white/10 text-slate-200">⚡ Авто-график 2/2</span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-white/10 text-slate-200">💸 Ведомость ФОТ</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Role Card 2: Employee / Operator -->
+            <div class="rounded-3xl p-4 bg-gradient-to-br from-sky-950/60 via-slate-900/90 to-emerald-950/60 border-2 border-sky-500/40 shadow-xl space-y-3">
+                <div class="flex items-start gap-3.5">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center text-white text-xl shrink-0 shadow-lg shadow-sky-500/30">
+                        <i class="fa-solid fa-id-badge"></i>
+                    </div>
+                    <div class="flex-1">
+                        <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/25 text-sky-200 border border-sky-400/30">Личный кабинет</span>
+                        <h2 class="text-base font-black mt-1.5">Я Сотрудник / Оператор ПВЗ</h2>
+                        <p class="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                            Мои смены в календаре, точный расчет моего заработка, отметка выхода на смену и биржа подмен с коллегами.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Employee Profile Selector -->
+                <div class="pt-2 border-t border-white/10 space-y-2">
+                    <div class="text-[11px] font-extrabold text-sky-300 flex items-center justify-between">
+                        <span>Выберите свой профиль оператора:</span>
+                        <span class="text-[10px] text-slate-400">Нажмите для входа</span>
+                    </div>
+                    <div id="onboardingEmployeeList" class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto no-scrollbar">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sync Code Quick Import on Onboarding -->
+            <div class="flex items-center justify-between px-2 pt-1 text-[11px] text-slate-400">
+                <button onclick="openSyncModal()" class="hover:text-white underline underline-offset-4 flex items-center gap-1.5">
+                    <i class="fa-solid fa-cloud-arrow-down text-sky-400"></i>
+                    <span>У меня есть код графика от управляющего</span>
+                </button>
+                <button id="closeOnboardingBtn" onclick="closeRoleOnboarding()" class="hidden text-slate-400 hover:text-white font-bold">
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOBILE DEVICE SHELL (Looks like native flagship Android phone on Desktop & full screen on Mobile) -->
+    <div id="appShell" class="w-full max-w-[460px] min-h-screen sm:min-h-[880px] sm:rounded-[42px] bg-slate-50 dark:bg-[#0B0F19] sm:border-[6px] sm:border-slate-800/90 shadow-[0_25px_90px_rgba(0,0,0,0.65)] flex flex-col relative overflow-hidden transition-colors duration-300">
+
+        <!-- Dynamic Ambient Marketplace Glow -->
+        <div id="ambientBg" class="ambient-glow absolute top-0 left-0 right-0 h-80 pointer-events-none z-0"></div>
+
+        <!-- ANDROID STATUS BAR (Simulated native bar) -->
+        <div class="relative z-20 px-5 pt-2.5 pb-1 flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            <span id="statusBarClock" class="font-mono">19:30</span>
+            <!-- Quick Role Switcher Pill in Top Bar -->
+            <button onclick="openRoleOnboarding(true)" id="topRoleSwitchPill" class="tactile px-2.5 py-0.5 rounded-full bg-purple-500/15 dark:bg-white/10 border border-purple-500/30 dark:border-white/15 flex items-center gap-1.5 text-[10px] font-extrabold text-purple-700 dark:text-white shadow-xs">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="topRolePillText">👑 Управляющий</span>
+                <i class="fa-solid fa-repeat text-[9px] opacity-75"></i>
+            </button>
+            <div class="flex items-center gap-1.5 text-[10px]">
+                <i class="fa-solid fa-signal"></i>
+                <i class="fa-solid fa-wifi"></i>
+                <i class="fa-solid fa-battery-full text-emerald-500 text-xs"></i>
+            </div>
+        </div>
+
+        <!-- STICKY GLASS HEADER -->
+        <header class="sticky top-0 z-30 px-4 pt-2 pb-3 backdrop-blur-xl bg-white/75 dark:bg-[#0B0F19]/80 border-b border-slate-200/70 dark:border-white/[0.06] transition-colors">
+            <div class="flex items-center justify-between gap-2 mb-3">
+                <!-- Brand Logo + Title -->
+                <div class="flex items-center gap-3 min-w-0">
+                    <div id="brandLogoBox" class="w-11 h-11 rounded-2xl brand-gradient-bg flex items-center justify-center text-white shadow-lg shadow-purple-500/30 relative overflow-hidden shrink-0">
+                        <i id="brandHeaderIcon" class="fa-solid fa-boxes-stacked text-lg"></i>
+                        <span class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-400 border-2 border-slate-900"></span>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <h1 id="headerMainTitle" class="font-extrabold text-base tracking-tight text-slate-900 dark:text-white leading-none truncate">ПВЗ Смены</h1>
+                            <span id="activeBrandBadge" class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full brand-gradient-bg text-white shadow-xs shrink-0">PRO</span>
+                        </div>
+                        <p id="headerSubtitle" class="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate">Все точки • Работодатель</p>
+                    </div>
+                </div>
+
+                <!-- Header Action Buttons (Adapts to Manager vs Employee) -->
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <!-- Manager Only: 2/2 Auto Schedule Button -->
+                    <button id="headerBatchBtn" onclick="openBatchModal()" class="tactile flex items-center gap-1.5 px-3 py-2 rounded-2xl brand-gradient-bg text-white text-xs font-bold shadow-md shadow-purple-500/20">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>2/2 Авто</span>
+                    </button>
+                    <!-- Sync / Share Schedule Button -->
+                    <button onclick="openSyncModal()" title="Синхронизация графика" class="tactile w-9 h-9 rounded-2xl bg-slate-200/70 dark:bg-white/[0.07] flex items-center justify-center text-slate-700 dark:text-sky-300 border border-slate-300/50 dark:border-white/[0.08] relative">
+                        <i class="fa-solid fa-share-nodes text-sm"></i>
+                        <span id="swapRequestsBadge" class="hidden absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black items-center justify-center">0</span>
+                    </button>
+                    <button onclick="toggleTheme()" class="tactile w-9 h-9 rounded-2xl bg-slate-200/70 dark:bg-white/[0.07] flex items-center justify-center text-slate-700 dark:text-amber-300 border border-slate-300/50 dark:border-white/[0.08]">
+                        <i id="themeIcon" class="fa-solid fa-sun text-sm"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Horizontal Marketplace / ПВЗ Location Switcher -->
+            <div id="pvzFilterBar" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                <!-- Populated by JS -->
+            </div>
+        </header>
+
+        <!-- MONTH BAR & HERO FINANCIAL CARD (ADAPTS TO ROLE) -->
+        <div class="relative z-10 px-4 pt-3 pb-1">
+            <div class="glass-card rounded-3xl p-3.5 shadow-lg">
+                <!-- Month Navigation Row -->
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="changeMonth(-1)" class="tactile w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.12] flex items-center justify-center text-slate-700 dark:text-slate-200">
+                            <i class="fa-solid fa-chevron-left text-xs"></i>
+                        </button>
+                        <div class="px-2 min-w-[135px] text-center">
+                            <div id="currentMonthLabel" class="font-extrabold text-sm sm:text-base tracking-tight capitalize">Октябрь 2026</div>
+                        </div>
+                        <button onclick="changeMonth(1)" class="tactile w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.12] flex items-center justify-center text-slate-700 dark:text-slate-200">
+                            <i class="fa-solid fa-chevron-right text-xs"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="openRoleOnboarding(true)" class="tactile text-[11px] font-extrabold px-2.5 py-1.5 rounded-xl bg-slate-200/70 dark:bg-white/[0.07] text-slate-700 dark:text-slate-200">
+                            <i class="fa-solid fa-user-gear mr-1"></i>Роль
+                        </button>
+                        <button onclick="goToToday()" class="tactile text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-purple-500/10 dark:bg-white/[0.06] text-purple-600 dark:text-purple-300 border border-purple-500/20">
+                            Сегодня
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Odometer KPI Strip (Labels dynamically adapt for Manager vs Employee) -->
+                <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/70 dark:border-white/[0.06]">
+                    <div class="bg-slate-100/80 dark:bg-white/[0.03] rounded-2xl p-2.5">
+                        <div id="kpiLabel1" class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Общий ФОТ</div>
+                        <div id="heroTotalFot" class="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5 font-mono">0 ₽</div>
+                        <div id="heroShiftsCount" class="text-[10px] text-slate-500 dark:text-slate-400">0 смен</div>
+                    </div>
+                    <div class="bg-emerald-500/10 dark:bg-emerald-500/[0.08] border border-emerald-500/20 rounded-2xl p-2.5">
+                        <div id="kpiLabel2" class="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Выплачено</div>
+                        <div id="heroPaidFot" class="text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400 mt-0.5 font-mono">0 ₽</div>
+                        <div id="heroPaidPercent" class="text-[10px] text-emerald-600/70 dark:text-emerald-400/70">0% закрыто</div>
+                    </div>
+                    <div class="bg-amber-500/10 dark:bg-amber-500/[0.08] border border-amber-500/20 rounded-2xl p-2.5">
+                        <div id="kpiLabel3" class="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">К выплате</div>
+                        <div id="heroUnpaidFot" class="text-sm sm:text-base font-black text-amber-600 dark:text-amber-400 mt-0.5 font-mono">0 ₽</div>
+                        <div id="kpiSub3" class="text-[10px] text-amber-600/70 dark:text-amber-400/70">Ожидает ЗП</div>
+                    </div>
+                </div>
+
+                <!-- Animated Payout Progress Bar -->
+                <div class="mt-2.5">
+                    <div class="h-1.5 w-full rounded-full bg-slate-200 dark:bg-white/[0.07] overflow-hidden relative">
+                        <div id="payoutProgressBar" class="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-700 relative shimmer-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCROLLABLE MAIN CONTENT AREA -->
+        <main class="relative z-10 flex-1 px-4 pt-2 pb-28 space-y-4">
+
+            <!-- ========================================== -->
+            <!-- TAB 1: SHIFT CALENDAR (КАЛЕНДАРЬ СМЕН)     -->
+            <!-- ========================================== -->
+            <section id="tab-calendar" class="tab-view-enter space-y-3">
+
+                <!-- MANAGER ONLY: Quick Paint Brush Bar & Swap Requests Alert -->
+                <div id="managerCalendarTools" class="space-y-2.5">
+                    <!-- Active Swap Requests Banner for Manager -->
+                    <div id="managerSwapAlert" class="hidden rounded-2xl p-3 bg-rose-500/15 border border-rose-500/30 flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center text-xs font-bold shrink-0 animate-bounce">
+                                <i class="fa-solid fa-bell"></i>
+                            </span>
+                            <div>
+                                <div class="text-xs font-extrabold text-rose-500 dark:text-rose-300">Запросы на подмену от сотрудников</div>
+                                <div id="managerSwapAlertSub" class="text-[10px] text-slate-500 dark:text-slate-300">Операторы просят замену на смены</div>
+                            </div>
+                        </div>
+                        <button onclick="switchTab('employees')" class="tactile px-2.5 py-1.5 rounded-xl bg-rose-500 text-white text-[10px] font-extrabold shrink-0">
+                            Открыть
+                        </button>
+                    </div>
+
+                    <!-- Quick Paint Brush -->
+                    <div class="glass-card rounded-2xl p-2.5 flex flex-col gap-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-lg bg-fuchsia-500/15 text-fuchsia-500 flex items-center justify-center text-xs">
+                                    <i class="fa-solid fa-paintbrush"></i>
+                                </span>
+                                <div>
+                                    <span class="text-xs font-bold">Быстрая кисть управляющего</span>
+                                    <span class="text-[10px] text-slate-400 block leading-none">Тапай по дням для назначения смен в 1 клик</span>
+                                </div>
+                            </div>
+                            <button onclick="toggleQuickPaint()" id="quickPaintToggleBtn" class="tactile px-3 py-1 rounded-xl text-[11px] font-bold bg-slate-200/80 dark:bg-white/[0.08] text-slate-600 dark:text-slate-300 transition">
+                                Выкл
+                            </button>
+                        </div>
+
+                        <div id="quickPaintPalette" class="hidden pt-2 border-t border-slate-200/60 dark:border-white/[0.06] flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                            <!-- Rendered by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EMPLOYEE ONLY: Next Shift Live Card & Filter ("Только мои смены" / "Весь ПВЗ") -->
+                <div id="employeeCalendarTools" class="hidden space-y-2.5">
+                    <!-- Next Shift Banner -->
+                    <div id="employeeNextShiftCard" class="rounded-3xl p-3.5 bg-gradient-to-r from-indigo-900/90 via-purple-900/85 to-fuchsia-900/80 border border-purple-400/30 text-white shadow-lg">
+                        <!-- Rendered by JS -->
+                    </div>
+
+                    <!-- Filter Toggle: My Shifts vs All Colleagues -->
+                    <div class="glass-card rounded-2xl p-1.5 flex items-center gap-1">
+                        <button onclick="setEmployeeCalendarFilter('mine')" id="empFilterMineBtn" class="tactile flex-1 py-1.5 rounded-xl text-xs font-extrabold brand-gradient-bg text-white shadow-xs">
+                            <i class="fa-solid fa-user-check mr-1"></i>Мои смены
+                        </button>
+                        <button onclick="setEmployeeCalendarFilter('all')" id="empFilterAllBtn" class="tactile flex-1 py-1.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400">
+                            <i class="fa-solid fa-users mr-1"></i>Общий график ПВЗ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Weekday Header -->
+                <div class="calendar-grid gap-1.5 text-center text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-0.5">
+                    <div>Пн</div>
+                    <div>Вт</div>
+                    <div>Ср</div>
+                    <div>Чт</div>
+                    <div>Пт</div>
+                    <div class="text-rose-500/80">Сб</div>
+                    <div class="text-rose-500/80">Вс</div>
+                </div>
+
+                <!-- Animated Calendar Grid -->
+                <div id="calendarGrid" class="calendar-grid gap-1.5">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <!-- Status Legend + Quick Action Strip -->
+                <div class="flex items-center justify-between px-1 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span>План</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-sky-400"></span>Отработана</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400"></span>Оплачена</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span>Подмена</span>
+                    </div>
+                    <span id="calendarHintLabel" class="text-[10px] opacity-75 shrink-0"><i class="fa-solid fa-hand-pointer mr-1"></i>Нажми на день</span>
+                </div>
+            </section>
+
+            <!-- ========================================== -->
+            <!-- TAB 2: PAYROLL (УПРАВЛЯЮЩИЙ) OR MY INCOME  -->
+            <!-- ========================================== -->
+            <section id="tab-payroll" class="hidden space-y-3.5">
+                <!-- Manager View: All Staff Payroll -->
+                <div id="managerPayrollView" class="space-y-3.5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="font-extrabold text-base">Расчетная ведомость ФОТ</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Выплаты операторам, премии и чеки в Telegram</p>
+                        </div>
+                        <button onclick="exportCSV()" class="tactile px-3 py-2 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-500 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-excel"></i>
+                            <span>Excel</span>
+                        </button>
+                    </div>
+
+                    <div id="payrollEmployeeList" class="space-y-3">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Employee View: Personal Detailed Payslip & Shift History -->
+                <div id="employeeIncomeView" class="hidden space-y-3.5">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- ========================================== -->
+            <!-- TAB 3: STAFF (УПРАВЛЯЮЩИЙ) OR SWAPS (СОТР.)-->
+            <!-- ========================================== -->
+            <section id="tab-employees" class="hidden space-y-3.5">
+                <!-- Manager View: Manage Operators & Swap Approvals -->
+                <div id="managerTeamView" class="space-y-3.5">
+                    <!-- Swap requests approval box for Manager -->
+                    <div id="managerSwapApprovalsBox" class="hidden space-y-2">
+                        <!-- Rendered by JS -->
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="font-extrabold text-base">Команда операторов ПВЗ</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Ставки за выход и быстрый вход в профиль</p>
+                        </div>
+                        <button onclick="openEmployeeModal()" class="tactile px-3.5 py-2 rounded-2xl brand-gradient-bg text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-purple-500/25">
+                            <i class="fa-solid fa-user-plus"></i>
+                            <span>Добавить</span>
+                        </button>
+                    </div>
+
+                    <div id="employeesList" class="space-y-2.5">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Employee View: Shift Swap Marketplace & Colleagues -->
+                <div id="employeeSwapsView" class="hidden space-y-3.5">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- ========================================== -->
+            <!-- TAB 4: ANALYTICS, PVZ & GITHUB APK RELEASE -->
+            <!-- ========================================== -->
+            <section id="tab-settings" class="hidden space-y-4">
+                <!-- Role Switcher Card inside Settings -->
+                <div class="glass-card rounded-3xl p-4 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-11 h-11 rounded-2xl brand-gradient-bg text-white flex items-center justify-center text-lg shadow-md">
+                            <i class="fa-solid fa-users-viewfinder"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs font-extrabold uppercase tracking-wider text-purple-400">Активный режим</div>
+                            <div id="settingsCurrentRoleText" class="font-extrabold text-sm">Управляющий ПВЗ</div>
+                            <div class="text-[11px] text-slate-400">Можно переключить или проверить экран входа</div>
+                        </div>
+                    </div>
+                    <button onclick="openRoleOnboarding(true)" class="tactile px-3.5 py-2 rounded-2xl brand-gradient-bg text-white text-xs font-extrabold shrink-0">
+                        Сменить роль
+                    </button>
+                </div>
+
+                <!-- Visual Analytics Card -->
+                <div id="managerAnalyticsCard" class="glass-card rounded-3xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-extrabold text-sm">Аналитика расходов по точкам ПВЗ</h3>
+                            <p class="text-[11px] text-slate-400">Распределение ФОТ за выбранный месяц</p>
+                        </div>
+                        <i class="fa-solid fa-chart-pie text-purple-400"></i>
+                    </div>
+                    <div id="pvzAnalyticsBars" class="space-y-2.5 pt-1">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- PVZ Points Manager -->
+                <div id="managerPvzSection" class="space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-extrabold text-sm">Мои пункты выдачи (ПВЗ)</h3>
+                            <p class="text-[11px] text-slate-400">Настройка адресов и базовой стоимости смены</p>
+                        </div>
+                        <button onclick="openPvzModal()" class="tactile px-3 py-1.5 rounded-xl bg-blue-500/15 text-blue-400 border border-blue-500/30 text-xs font-bold">
+                            <i class="fa-solid fa-plus mr-1"></i>Добавить ПВЗ
+                        </button>
+                    </div>
+                    <div id="pvzManageList" class="space-y-2">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- GitHub Release & Android APK Builder Studio -->
+                <div class="rounded-3xl p-4 bg-gradient-to-br from-emerald-950/90 via-slate-900 to-indigo-950 border border-emerald-500/30 text-white space-y-3 shadow-xl">
+                    <div class="flex items-start gap-3">
+                        <div class="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 text-xl shrink-0">
+                            <i class="fa-brands fa-android"></i>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300">GitHub Ready</span>
+                            <h3 class="font-extrabold text-sm mt-1">Релиз на GitHub и сборка Android APK</h3>
+                            <p class="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                                Готовая инструкция и генератор манифеста для публикации приложения на GitHub и выпуска `.apk`.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 pt-1">
+                        <button onclick="openGitHubModal()" class="tactile flex-1 py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs text-center shadow-lg shadow-emerald-500/20">
+                            <i class="fa-brands fa-github mr-1.5"></i>Инструкция GitHub + APK
+                        </button>
+                        <button onclick="copyManifestJson()" class="tactile py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs">
+                            <i class="fa-solid fa-code mr-1"></i>manifest.json
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Database Backup & Reset -->
+                <div class="glass-card rounded-3xl p-4 space-y-3">
+                    <h3 class="font-extrabold text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-shield-halved text-purple-400"></i>
+                        Синхронизация и резервная копия
+                    </h3>
+                    <button onclick="openSyncModal()" class="tactile w-full py-2.5 px-3 rounded-xl brand-gradient-bg text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-md">
+                        <i class="fa-solid fa-qrcode"></i> Поделиться графиком с сотрудниками (Код)
+                    </button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="exportBackupJSON()" class="tactile py-2.5 px-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-950 text-xs font-bold flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-download"></i> Скачать .JSON
+                        </button>
+                        <label class="tactile py-2.5 px-3 rounded-xl bg-slate-200 dark:bg-white/[0.08] text-slate-800 dark:text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer">
+                            <i class="fa-solid fa-upload"></i> Загрузить базу
+                            <input type="file" accept=".json" onchange="importBackupJSON(event)" class="hidden">
+                        </label>
+                    </div>
+                    <button onclick="resetDemoData()" class="tactile w-full py-2 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 text-xs font-bold">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Сбросить демо-данные и показать экран 1-го входа
+                    </button>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- FLOATING GLASS BOTTOM NAVIGATION BAR (LABELS ADAPT TO ROLE) -->
+        <nav class="fixed sm:sticky bottom-0 left-0 right-0 z-40 max-w-[460px] mx-auto glass-nav px-3 py-2 flex items-center justify-around">
+            <button onclick="switchTab('calendar')" id="nav-calendar" class="tactile flex-1 py-1 flex flex-col items-center gap-1">
+                <div class="nav-pill px-5 py-1.5 rounded-2xl brand-gradient-bg text-white shadow-md transition-all duration-300">
+                    <i class="fa-solid fa-calendar-days text-sm"></i>
+                </div>
+                <span id="navLabelCalendar" class="nav-label text-[10px] font-extrabold text-slate-900 dark:text-white">Календарь</span>
+            </button>
+
+            <button onclick="switchTab('payroll')" id="nav-payroll" class="tactile flex-1 py-1 flex flex-col items-center gap-1">
+                <div class="nav-pill px-5 py-1.5 rounded-2xl text-slate-400 transition-all duration-300">
+                    <i class="fa-solid fa-wallet text-sm"></i>
+                </div>
+                <span id="navLabelPayroll" class="nav-label text-[10px] font-semibold text-slate-400">Зарплата</span>
+            </button>
+
+            <button onclick="switchTab('employees')" id="nav-employees" class="tactile flex-1 py-1 flex flex-col items-center gap-1 relative">
+                <div class="nav-pill px-5 py-1.5 rounded-2xl text-slate-400 transition-all duration-300">
+                    <i id="navIconEmployees" class="fa-solid fa-user-group text-sm"></i>
+                </div>
+                <span id="navLabelEmployees" class="nav-label text-[10px] font-semibold text-slate-400">Команда</span>
+            </button>
+
+            <button onclick="switchTab('settings')" id="nav-settings" class="tactile flex-1 py-1 flex flex-col items-center gap-1">
+                <div class="nav-pill px-5 py-1.5 rounded-2xl text-slate-400 transition-all duration-300">
+                    <i class="fa-solid fa-sliders text-sm"></i>
+                </div>
+                <span id="navLabelSettings" class="nav-label text-[10px] font-semibold text-slate-400">ПВЗ и Роль</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- BOTTOM SHEET 1: DAY INSPECTOR (ADAPTS TO MANAGER/EMPLOYEE) -->
+    <!-- ========================================================== -->
+    <div id="dayModal" onclick="if(event.target === this) closeDayModal()" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-md hidden items-end justify-center p-0 sm:p-4">
+        <div class="bg-white dark:bg-[#111726] w-full max-w-[460px] rounded-t-[32px] sm:rounded-[32px] border-t sm:border border-slate-200 dark:border-white/10 shadow-2xl sheet-enter max-h-[90vh] flex flex-col overflow-hidden">
+            <!-- Drag Handle -->
+            <div class="pt-2.5 pb-1 flex justify-center">
+                <div class="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-white/15"></div>
+            </div>
+
+            <!-- Sheet Header -->
+            <div class="px-5 py-3 flex items-center justify-between border-b border-slate-200/70 dark:border-white/[0.07]">
+                <div>
+                    <span id="dayModalWeekday" class="text-[11px] font-extrabold uppercase tracking-wider text-purple-500">Суббота</span>
+                    <h3 id="dayModalTitle" class="text-lg font-black leading-tight">31 октября 2026</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="dayModalTotalBadge" class="text-xs font-extrabold font-mono px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/25">0 ₽</span>
+                    <button onclick="closeDayModal()" class="tactile w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-500 dark:text-slate-300">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sheet Scrollable Content -->
+            <div class="p-4 overflow-y-auto space-y-4 flex-1 no-scrollbar">
+                <!-- Existing Shifts List -->
+                <div id="dayShiftsList" class="space-y-2.5">
+                    <!-- Rendered by JS -->
+                </div>
+
+                <!-- Employee Self-Service Box (Shown ONLY in Employee Mode) -->
+                <div id="employeeDayActionBox" class="hidden p-4 rounded-3xl bg-gradient-to-br from-sky-500/10 to-purple-500/10 border border-sky-500/25 space-y-3">
+                    <!-- Rendered by JS -->
+                </div>
+
+                <!-- Manager Add / Edit Shift Form (Shown ONLY in Manager Mode) -->
+                <form id="shiftForm" onsubmit="saveShiftFromDayModal(event)" class="p-4 rounded-3xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h4 id="shiftFormHeader" class="text-xs font-extrabold uppercase tracking-wider text-purple-500 flex items-center gap-1.5">
+                            <i class="fa-solid fa-plus-circle"></i>
+                            <span>Назначить смену (Управляющий)</span>
+                        </h4>
+                        <button type="button" id="cancelEditShiftBtn" onclick="resetShiftForm()" class="hidden text-xs font-bold text-rose-500">
+                            Отмена
+                        </button>
+                    </div>
+                    <input type="hidden" id="shiftEditId" value="">
+
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 mb-1">Пункт выдачи</label>
+                            <select id="shiftPvzSelect" onchange="onShiftFormSelectionChange()" required class="w-full px-3 py-2.5 rounded-2xl bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs font-bold focus:outline-none focus:border-purple-500"></select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 mb-1">Сотрудник</label>
+                            <select id="shiftEmployeeSelect" onchange="onShiftFormSelectionChange()" required class="w-full px-3 py-2.5 rounded-2xl bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs font-bold focus:outline-none focus:border-purple-500"></select>
+                        </div>
+                    </div>
+
+                    <!-- Rate, Hours, Bonus, Penalty -->
+                    <div class="grid grid-cols-4 gap-2">
+                        <div class="col-span-2">
+                            <label class="block text-[11px] font-bold text-slate-400 mb-1">Ставка (₽)</label>
+                            <input type="number" id="shiftRateInput" required min="0" step="50" class="w-full px-3 py-2 rounded-2xl bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-sm font-black font-mono text-emerald-500 focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 mb-1">Часы</label>
+                            <input type="number" id="shiftHoursInput" min="1" max="24" value="12" class="w-full px-2.5 py-2 rounded-2xl bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-sm font-bold font-mono text-center">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 mb-1">Статус</label>
+                            <select id="shiftStatusSelect" class="w-full px-2 py-2 rounded-2xl bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs font-bold">
+                                <option value="planned">📅 План</option>
+                                <option value="worked">✅ Отраб.</option>
+                                <option value="paid">💸 Оплач.</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Quick Rate Preset Chips -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                        <span class="text-[10px] font-bold text-slate-400 shrink-0">Быстро:</span>
+                        <button type="button" onclick="setQuickRate(2000)" class="px-2 py-0.5 rounded-lg bg-slate-200/70 dark:bg-white/[0.06] text-[10px] font-mono font-bold">2000₽</button>
+                        <button type="button" onclick="setQuickRate(2500)" class="px-2 py-0.5 rounded-lg bg-slate-200/70 dark:bg-white/[0.06] text-[10px] font-mono font-bold">2500₽</button>
+                        <button type="button" onclick="setQuickRate(2800)" class="px-2 py-0.5 rounded-lg bg-slate-200/70 dark:bg-white/[0.06] text-[10px] font-mono font-bold">2800₽</button>
+                        <button type="button" onclick="setQuickRate(3000)" class="px-2 py-0.5 rounded-lg bg-slate-200/70 dark:bg-white/[0.06] text-[10px] font-mono font-bold">3000₽</button>
+                        <button type="button" onclick="setQuickRate(3500)" class="px-2 py-0.5 rounded-lg bg-slate-200/70 dark:bg-white/[0.06] text-[10px] font-mono font-bold">3500₽</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="block text-[11px] font-bold text-sky-400 mb-1">+ Премия за смену (₽)</label>
+                            <input type="number" id="shiftBonusInput" min="0" step="50" value="0" class="w-full px-3 py-2 rounded-2xl bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs font-bold font-mono text-sky-400">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-rose-400 mb-1">- Штраф / Удержание (₽)</label>
+                            <input type="number" id="shiftPenaltyInput" min="0" step="50" value="0" class="w-full px-3 py-2 rounded-2xl bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs font-bold font-mono text-rose-400">
+                        </div>
+                    </div>
+
+                    <div>
+                        <input type="text" id="shiftNoteInput" placeholder="Комментарий (напр. +400₽ за приемку 50 коробок)" class="w-full px-3 py-2 rounded-2xl bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs">
+                    </div>
+
+                    <button type="submit" id="shiftSubmitBtn" class="tactile w-full py-3 rounded-2xl brand-gradient-bg text-white font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-purple-500/25">
+                        Сохранить смену
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- BOTTOM SHEET 2: SMART SCHEDULE GENERATOR (АВТО-ГРАФИК)     -->
+    <!-- ========================================================== -->
+    <div id="batchModal" onclick="if(event.target === this) closeBatchModal()" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-md hidden items-end justify-center p-0 sm:p-4">
+        <div class="bg-white dark:bg-[#111726] w-full max-w-[460px] rounded-t-[32px] sm:rounded-[32px] border-t sm:border border-slate-200 dark:border-white/10 shadow-2xl sheet-enter overflow-hidden">
+            <div class="pt-2.5 pb-1 flex justify-center">
+                <div class="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-white/15"></div>
+            </div>
+            <div class="px-5 py-3 flex items-center justify-between border-b border-slate-200/70 dark:border-white/[0.07]">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-2xl brand-gradient-bg text-white flex items-center justify-center shadow-md">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-base">Конструктор графика</h3>
+                        <p class="text-[11px] text-slate-400">Авто-расстановка смен на месяц</p>
+                    </div>
+                </div>
+                <button onclick="closeBatchModal()" class="tactile w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form onsubmit="applyBatchSchedule(event)" class="p-5 space-y-3.5">
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Пункт выдачи</label>
+                        <select id="batchPvzSelect" required class="w-full px-3 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs font-bold"></select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Оператор ПВЗ</label>
+                        <select id="batchEmpSelect" onchange="updateBatchDefaultRate()" required class="w-full px-3 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs font-bold"></select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Схема смен</label>
+                        <select id="batchPatternSelect" class="w-full px-3 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs font-extrabold">
+                            <option value="2-2">🔥 График 2 / 2</option>
+                            <option value="3-3">⚡ График 3 / 3</option>
+                            <option value="1-1">🔄 Через день (1 / 1)</option>
+                            <option value="5-2">💼 Будни 5 / 2</option>
+                            <option value="2-5">🌴 Выходные (Сб-Вс)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Ставка за выход (₽)</label>
+                        <input type="number" id="batchRateInput" required min="0" step="50" class="w-full px-3 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-sm font-black font-mono text-emerald-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Первая смена (число)</label>
+                        <input type="number" id="batchStartDay" min="1" max="31" value="1" required class="w-full px-3 py-2 rounded-2xl bg-slate-100 dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs font-bold font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">По какое число</label>
+                        <input type="number" id="batchEndDay" min="1" max="31" value="31" required class="w-full px-3 py-2 rounded-2xl bg-slate-100 dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs font-bold font-mono">
+                    </div>
+                </div>
+
+                <label class="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-300 cursor-pointer pt-1">
+                    <input type="checkbox" id="batchClearExisting" checked class="w-4 h-4 rounded text-purple-600">
+                    <span>Перезаписать старые смены этого сотрудника на точке</span>
+                </label>
+
+                <button type="submit" class="tactile w-full py-3.5 rounded-2xl brand-gradient-bg text-white font-extrabold text-xs uppercase tracking-wider shadow-xl">
+                    Заполнить календарь с анимацией
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- BOTTOM SHEET 3: EMPLOYEE MODAL (ДОБАВИТЬ/ИЗМЕНИТЬ)         -->
+    <!-- ========================================================== -->
+    <div id="employeeModal" onclick="if(event.target === this) closeEmployeeModal()" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-md hidden items-end justify-center p-0 sm:p-4">
+        <div class="bg-white dark:bg-[#111726] w-full max-w-[460px] rounded-t-[32px] sm:rounded-[32px] border-t sm:border border-slate-200 dark:border-white/10 shadow-2xl sheet-enter overflow-hidden">
+            <div class="pt-2.5 pb-1 flex justify-center">
+                <div class="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-white/15"></div>
+            </div>
+            <div class="px-5 py-3 flex items-center justify-between border-b border-slate-200/70 dark:border-white/[0.07]">
+                <h3 id="empModalTitle" class="font-extrabold text-base">Карточка сотрудника</h3>
+                <button onclick="closeEmployeeModal()" class="tactile w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form onsubmit="saveEmployee(event)" class="p-5 space-y-3.5">
+                <input type="hidden" id="empIdInput">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 mb-1">Имя и Фамилия</label>
+                    <input type="text" id="empNameInput" required placeholder="Напр.: Алина Карпова" class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-sm font-bold">
+                </div>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Ставка (₽ / смена)</label>
+                        <input type="number" id="empRateInput" required min="0" step="50" value="2600" class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-sm font-black font-mono text-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Должность / Контакт</label>
+                        <input type="text" id="empPhoneInput" placeholder="Старший оператор • @alina" class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs font-semibold">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 mb-2">Цвет бейджа в графике</label>
+                    <div class="flex items-center justify-between gap-2">
+                        <label class="cursor-pointer"><input type="radio" name="empColor" value="#a855f7" checked class="sr-only peer"><span class="w-9 h-9 rounded-2xl bg-purple-500 block ring-offset-2 ring-offset-slate-900 peer-checked:ring-2 ring-white transition-transform peer-checked:scale-110"></span></label>
+                        <label class="cursor-pointer"><input type="radio" name="empColor" value="#3b82f6" class="sr-only peer"><span class="w-9 h-9 rounded-2xl bg-blue-500 block ring-offset-2 ring-offset-slate-900 peer-checked:ring-2 ring-white transition-transform peer-checked:scale-110"></span></label>
+                        <label class="cursor-pointer"><input type="radio" name="empColor" value="#10b981" class="sr-only peer"><span class="w-9 h-9 rounded-2xl bg-emerald-500 block ring-offset-2 ring-offset-slate-900 peer-checked:ring-2 ring-white transition-transform peer-checked:scale-110"></span></label>
+                        <label class="cursor-pointer"><input type="radio" name="empColor" value="#f59e0b" class="sr-only peer"><span class="w-9 h-9 rounded-2xl bg-amber-500 block ring-offset-2 ring-offset-slate-900 peer-checked:ring-2 ring-white transition-transform peer-checked:scale-110"></span></label>
+                        <label class="cursor-pointer"><input type="radio" name="empColor" value="#ec4899" class="sr-only peer"><span class="w-9 h-9 rounded-2xl bg-pink-500 block ring-offset-2 ring-offset-slate-900 peer-checked:ring-2 ring-white transition-transform peer-checked:scale-110"></span></label>
+                        <label class="cursor-pointer"><input type="radio" name="empColor" value="#06b6d4" class="sr-only peer"><span class="w-9 h-9 rounded-2xl bg-cyan-500 block ring-offset-2 ring-offset-slate-900 peer-checked:ring-2 ring-white transition-transform peer-checked:scale-110"></span></label>
+                    </div>
+                </div>
+                <button type="submit" class="tactile w-full py-3.5 rounded-2xl brand-gradient-bg text-white font-extrabold text-xs uppercase tracking-wider shadow-lg">
+                    Сохранить сотрудника
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- BOTTOM SHEET 4: PVZ LOCATION MODAL                         -->
+    <!-- ========================================================== -->
+    <div id="pvzModal" onclick="if(event.target === this) closePvzModal()" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-md hidden items-end justify-center p-0 sm:p-4">
+        <div class="bg-white dark:bg-[#111726] w-full max-w-[460px] rounded-t-[32px] sm:rounded-[32px] border-t sm:border border-slate-200 dark:border-white/10 shadow-2xl sheet-enter overflow-hidden">
+            <div class="pt-2.5 pb-1 flex justify-center">
+                <div class="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-white/15"></div>
+            </div>
+            <div class="px-5 py-3 flex items-center justify-between border-b border-slate-200/70 dark:border-white/[0.07]">
+                <h3 id="pvzModalTitle" class="font-extrabold text-base">Пункт выдачи заказов</h3>
+                <button onclick="closePvzModal()" class="tactile w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form onsubmit="savePvzPoint(event)" class="p-5 space-y-3.5">
+                <input type="hidden" id="pvzIdInput">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 mb-1">Маркетплейс (Меняет тему приложения)</label>
+                    <select id="pvzBrandSelect" class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs font-extrabold">
+                        <option value="WB">🟣 Wildberries (Фиолетовый неон)</option>
+                        <option value="Ozon">🔵 Ozon (Синий электрик)</option>
+                        <option value="YM">🟡 Яндекс Маркет (Золотой)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 mb-1">Название или Адрес ПВЗ</label>
+                    <input type="text" id="pvzNameInput" required placeholder="Напр.: Веласкеса 5" class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-sm font-bold">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 mb-1">Базовая ставка смены на точке (₽)</label>
+                    <input type="number" id="pvzRateInput" required min="0" step="50" value="2600" class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-sm font-black font-mono text-emerald-500">
+                </div>
+                <button type="submit" class="tactile w-full py-3.5 rounded-2xl brand-gradient-bg text-white font-extrabold text-xs uppercase tracking-wider shadow-lg">
+                    Сохранить точку ПВЗ
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- BOTTOM SHEET 5: GITHUB & APK INSTRUCTIONS                  -->
+    <!-- ========================================================== -->
+    <div id="githubModal" onclick="if(event.target === this) closeGitHubModal()" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-md hidden items-end justify-center p-0 sm:p-4">
+        <div class="bg-white dark:bg-[#111726] w-full max-w-[460px] rounded-t-[32px] sm:rounded-[32px] border-t sm:border border-slate-200 dark:border-white/10 shadow-2xl sheet-enter max-h-[88vh] flex flex-col overflow-hidden">
+            <div class="pt-2.5 pb-1 flex justify-center">
+                <div class="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-white/15"></div>
+            </div>
+            <div class="px-5 py-3 flex items-center justify-between border-b border-slate-200/70 dark:border-white/[0.07]">
+                <div class="flex items-center gap-2">
+                    <i class="fa-brands fa-github text-lg"></i>
+                    <h3 class="font-extrabold text-base">Публикация на GitHub и сборка APK</h3>
+                </div>
+                <button onclick="closeGitHubModal()" class="tactile w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-5 overflow-y-auto space-y-4 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                <div class="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 font-medium">
+                    <i class="fa-solid fa-circle-check mr-1"></i> Приложение полностью автономно в одном файле <code>index.html</code>. Все данные надежно хранятся на устройстве.
+                </div>
+
+                <div class="space-y-1.5">
+                    <h4 class="font-extrabold text-slate-900 dark:text-white text-sm">Шаг 1. Выкладываем на GitHub Pages</h4>
+                    <ol class="list-decimal list-inside space-y-1">
+                        <li>Создайте публичный репозиторий на <b>github.com</b> (например, <code>pvz-shifts-pro</code>).</li>
+                        <li>Загрузите этот файл под именем <code>index.html</code>.</li>
+                        <li>В настройках репозитория откройте <b>Settings → Pages</b>, выберите ветку <code>main</code> и нажмите <b>Save</b>.</li>
+                    </ol>
+                </div>
+
+                <div class="space-y-1.5">
+                    <h4 class="font-extrabold text-slate-900 dark:text-white text-sm">Шаг 2. Конвертируем в Android .APK</h4>
+                    <ol class="list-decimal list-inside space-y-1">
+                        <li>Перейдите на бесплатный сервис <b>pwabuilder.com</b> или <b>webintoapp.com</b>.</li>
+                        <li>Вставьте ссылку на ваш GitHub Pages.</li>
+                        <li>Скачайте готовый установочный файл <code>.apk</code> и прикрепите его в раздел <b>Releases</b> вашего GitHub!</li>
+                    </ol>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-200/70 dark:border-white/[0.07]">
+                <button onclick="closeGitHubModal()" class="tactile w-full py-3 rounded-2xl brand-gradient-bg text-white font-extrabold text-xs">Отлично, всё понятно!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- BOTTOM SHEET 6: SYNC CODE BETWEEN MANAGER & EMPLOYEES      -->
+    <!-- ========================================================== -->
+    <div id="syncModal" onclick="if(event.target === this) closeSyncModal()" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-md hidden items-end justify-center p-0 sm:p-4">
+        <div class="bg-white dark:bg-[#111726] w-full max-w-[460px] rounded-t-[32px] sm:rounded-[32px] border-t sm:border border-slate-200 dark:border-white/10 shadow-2xl sheet-enter overflow-hidden">
+            <div class="pt-2.5 pb-1 flex justify-center">
+                <div class="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-white/15"></div>
+            </div>
+            <div class="px-5 py-3 flex items-center justify-between border-b border-slate-200/70 dark:border-white/[0.07]">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-2xl bg-sky-500/20 text-sky-400 flex items-center justify-center">
+                        <i class="fa-solid fa-share-nodes"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-base">Синхронизация графика</h3>
+                        <p class="text-[11px] text-slate-400">Передача расписания между управляющим и сотрудниками</p>
+                    </div>
+                </div>
+                <button onclick="closeSyncModal()" class="tactile w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div class="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-2">
+                    <div class="text-xs font-extrabold text-purple-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-crown"></i> Для Управляющего: отправить график команде
+                    </div>
+                    <p class="text-[11px] text-slate-400 leading-relaxed">
+                        Скопируйте код расписания и отправьте его в рабочий чат ПВЗ в Telegram или WhatsApp.
+                    </p>
+                    <button onclick="copySyncCode()" class="tactile w-full py-2.5 rounded-xl brand-gradient-bg text-white text-xs font-extrabold shadow-md">
+                        <i class="fa-regular fa-copy mr-1.5"></i>Скопировать код графика для сотрудников
+                    </button>
+                </div>
+
+                <div class="p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/25 space-y-2.5">
+                    <div class="text-xs font-extrabold text-sky-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-id-badge"></i> Для Сотрудника: загрузить свежий график
+                    </div>
+                    <textarea id="syncCodeInput" rows="2" placeholder="Вставьте сюда код графика от управляющего..." class="w-full p-2.5 rounded-xl bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-white/10 text-xs font-mono"></textarea>
+                    <button onclick="applySyncCode()" class="tactile w-full py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-extrabold">
+                        <i class="fa-solid fa-cloud-arrow-down mr-1.5"></i>Обновить мой календарь смен
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toastContainer" class="fixed top-4 left-1/2 -translate-x-1/2 z-[95] flex flex-col gap-2 w-[92%] max-w-[420px] pointer-events-none"></div>
+
+    <!-- ========================================================== -->
+    <!-- CORE APPLICATION SCRIPT                                    -->
+    <!-- ========================================================== -->
+    <script>
+        const STORAGE_KEY = 'pvz_shifts_pro_v3_roles';
+
+        let state = {
+            hasCompletedOnboarding: false,
+            userRole: 'manager', // 'manager' | 'employee'
+            activeEmployeeId: 'emp_1', // Which operator is logged in when userRole === 'employee'
+            employeeCalendarFilter: 'mine', // 'mine' | 'all'
+            currentYear: 2026,
+            currentMonth: 9, // October 2026 (0-indexed)
+            selectedPvzId: 'all',
+            selectedDateStr: null,
+            quickPaintActive: false,
+            quickPaintEmpId: null,
+            pvzPoints: [],
+            employees: [],
+            shifts: []
+        };
+
+        // Animated odometer cache
+        const numberCache = {
+            fot: 0,
+            paid: 0,
+            unpaid: 0
+        };
+
+        const MONTHS_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+        const MONTHS_GENITIVE_RU = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+        const WEEKDAYS_FULL_RU = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+
+        function createDefaultData() {
+            const pvzPoints = [
+                { id: 'pvz_wb1', brand: 'WB', name: 'Центральный 12', defaultRate: 2700 },
+                { id: 'pvz_ozon1', brand: 'Ozon', name: 'Советская 45', defaultRate: 2500 },
+                { id: 'pvz_ym1', brand: 'YM', name: 'Веласкеса 5', defaultRate: 2400 }
+            ];
+
+            const employees = [
+                { id: 'emp_1', name: 'Анна Смирнова', defaultRate: 2700, phone: 'Старший оператор • @anna_wb', color: '#a855f7' },
+                { id: 'emp_2', name: 'Максим Волков', defaultRate: 2600, phone: 'Оператор ПВЗ • +7 916 555-12-34', color: '#3b82f6' },
+                { id: 'emp_3', name: 'Елена Морозова', defaultRate: 2500, phone: 'Оператор Ozon • @elena_oz', color: '#10b981' },
+                { id: 'emp_4', name: 'Денис Соколов', defaultRate: 2400, phone: 'Подменный • +7 926 700-99-11', color: '#f59e0b' }
+            ];
+
+            const shifts = [];
+            const year = 2026;
+            const month = 9; // October
+            for (let day = 1; day <= 31; day++) {
+                const dateStr = formatDateKey(year, month, day);
+                const isAnna = ((day - 1) % 4) < 2;
+                let status = day <= 18 ? 'paid' : (day <= 29 ? 'worked' : 'planned');
+
+                shifts.push({
+                    id: 'sh_wb_' + day,
+                    date: dateStr,
+                    pvzId: 'pvz_wb1',
+                    employeeId: isAnna ? 'emp_1' : 'emp_2',
+                    rate: isAnna ? 2700 : 2600,
+                    hours: 12,
+                    bonus: (day === 10 || day === 24) ? 500 : 0,
+                    penalty: (day === 16) ? 300 : 0,
+                    status,
+                    swapRequested: (day === 31 && !isAnna), // Demo swap request on Oct 31
+                    note: (day === 10 || day === 24) ? '+500₽ за разбор 60 коробок' : (day === 16 ? 'Опоздание на 20 мин' : '')
+                });
+
+                const isElena = ((day + 1) % 4) < 2;
+                shifts.push({
+                    id: 'sh_oz_' + day,
+                    date: dateStr,
+                    pvzId: 'pvz_ozon1',
+                    employeeId: isElena ? 'emp_3' : 'emp_4',
+                    rate: isElena ? 2500 : 2400,
+                    hours: 12,
+                    bonus: (day === 20) ? 400 : 0,
+                    penalty: 0,
+                    status,
+                    swapRequested: false,
+                    note: (day === 20) ? 'Премия за рейтинг 5.0' : ''
+                });
+            }
+
+            return {
+                hasCompletedOnboarding: false,
+                userRole: 'manager',
+                activeEmployeeId: 'emp_1',
+                employeeCalendarFilter: 'mine',
+                currentYear: 2026,
+                currentMonth: 9,
+                selectedPvzId: 'all',
+                quickPaintEmpId: 'emp_1',
+                pvzPoints,
+                employees,
+                shifts
+            };
+        }
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    state = { ...state, ...parsed };
+                } else {
+                    state = { ...state, ...createDefaultData() };
+                    saveState();
+                }
+            } catch (e) {
+                state = { ...state, ...createDefaultData() };
+            }
+            if (!state.quickPaintEmpId && state.employees.length > 0) {
+                state.quickPaintEmpId = state.employees[0].id;
+            }
+            if (!state.activeEmployeeId && state.employees.length > 0) {
+                state.activeEmployeeId = state.employees[0].id;
+            }
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    hasCompletedOnboarding: state.hasCompletedOnboarding,
+                    userRole: state.userRole,
+                    activeEmployeeId: state.activeEmployeeId,
+                    employeeCalendarFilter: state.employeeCalendarFilter,
+                    currentYear: state.currentYear,
+                    currentMonth: state.currentMonth,
+                    selectedPvzId: state.selectedPvzId,
+                    quickPaintEmpId: state.quickPaintEmpId,
+                    pvzPoints: state.pvzPoints,
+                    employees: state.employees,
+                    shifts: state.shifts
+                }));
+            } catch (e) {}
+        }
+
+        // ==========================================================
+        // ROLE ONBOARDING & ROLE SWITCHING ENGINE
+        // ==========================================================
+        function openRoleOnboarding(allowClose = false) {
+            const overlay = document.getElementById('roleOnboardingOverlay');
+            const closeBtn = document.getElementById('closeOnboardingBtn');
+            if (allowClose) closeBtn.classList.remove('hidden');
+            else closeBtn.classList.add('hidden');
+
+            const listEl = document.getElementById('onboardingEmployeeList');
+            listEl.innerHTML = state.employees.map(emp => `
+                <button onclick="selectRoleEmployee('${emp.id}')" class="tactile w-full p-2.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 flex items-center justify-between text-left transition">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-xs shadow-md" style="background-color: ${emp.color}">
+                            ${emp.name.slice(0,2).toUpperCase()}
+                        </div>
+                        <div>
+                            <div class="font-extrabold text-xs text-white">${emp.name}</div>
+                            <div class="text-[10px] text-slate-300">${emp.phone || 'Оператор ПВЗ'} • Ставка ${emp.defaultRate}₽</div>
+                        </div>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-xl bg-sky-500/25 text-sky-200 text-[10px] font-extrabold">
+                        Войти <i class="fa-solid fa-chevron-right ml-0.5"></i>
+                    </span>
+                </button>
+            `).join('');
+
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+        }
+
+        function closeRoleOnboarding() {
+            const overlay = document.getElementById('roleOnboardingOverlay');
+            overlay.classList.add('hidden');
+            overlay.classList.remove('flex');
+        }
+
+        function selectRoleManager() {
+            state.userRole = 'manager';
+            state.hasCompletedOnboarding = true;
+            saveState();
+            closeRoleOnboarding();
+            renderAll(true);
+            showToast('Режим Управляющего ПВЗ активирован 👑');
+        }
+
+        function selectRoleEmployee(empId) {
+            state.userRole = 'employee';
+            state.activeEmployeeId = empId;
+            state.hasCompletedOnboarding = true;
+            state.quickPaintActive = false;
+            saveState();
+            closeRoleOnboarding();
+            renderAll(true);
+            const emp = getActiveEmployee();
+            showToast(`Личный кабинет: ${emp ? emp.name : 'Сотрудник'} 👤`);
+        }
+
+        function getActiveEmployee() {
+            return state.employees.find(e => e.id === state.activeEmployeeId) || state.employees[0];
+        }
+
+        function setEmployeeCalendarFilter(mode) {
+            state.employeeCalendarFilter = mode;
+            saveState();
+            renderAll(true);
+        }
+
+        // Dynamic Marketplace & Role Theme Engine
+        function applyBrandTheme() {
+            const root = document.documentElement;
+            const badge = document.getElementById('activeBrandBadge');
+            const subtitle = document.getElementById('headerSubtitle');
+            const mainTitle = document.getElementById('headerMainTitle');
+            const topPillText = document.getElementById('topRolePillText');
+            const batchBtn = document.getElementById('headerBatchBtn');
+            const roleSettingsLabel = document.getElementById('settingsCurrentRoleText');
+
+            const isManager = state.userRole === 'manager';
+            const activeEmp = getActiveEmployee();
+
+            // Update Role Pill & Navigation Labels
+            if (isManager) {
+                topPillText.textContent = '👑 Управляющий';
+                mainTitle.textContent = 'ПВЗ Смены';
+                batchBtn.classList.remove('hidden');
+                roleSettingsLabel.textContent = '👑 Управляющий / Владелец ПВЗ';
+                document.getElementById('navLabelCalendar').textContent = 'График';
+                document.getElementById('navLabelPayroll').textContent = 'Ведомость';
+                document.getElementById('navLabelEmployees').textContent = 'Команда';
+                document.getElementById('navIconEmployees').className = 'fa-solid fa-user-group text-sm';
+            } else {
+                const firstName = activeEmp ? activeEmp.name.split(' ')[0] : 'Оператор';
+                topPillText.textContent = `👤 Сотрудник: ${firstName}`;
+                mainTitle.textContent = activeEmp ? activeEmp.name : 'Кабинет оператора';
+                batchBtn.classList.add('hidden');
+                roleSettingsLabel.textContent = `👤 Сотрудник (${activeEmp ? activeEmp.name : ''})`;
+                document.getElementById('navLabelCalendar').textContent = 'Мои смены';
+                document.getElementById('navLabelPayroll').textContent = 'Мой доход';
+                document.getElementById('navLabelEmployees').textContent = 'Подмены';
+                document.getElementById('navIconEmployees').className = 'fa-solid fa-retweet text-sm';
+            }
+
+            // Toggle role-specific sections
+            document.getElementById('managerCalendarTools').classList.toggle('hidden', !isManager);
+            document.getElementById('employeeCalendarTools').classList.toggle('hidden', isManager);
+            document.getElementById('managerPayrollView').classList.toggle('hidden', !isManager);
+            document.getElementById('employeeIncomeView').classList.toggle('hidden', isManager);
+            document.getElementById('managerTeamView').classList.toggle('hidden', !isManager);
+            document.getElementById('employeeSwapsView').classList.toggle('hidden', isManager);
+            document.getElementById('managerPvzSection').classList.toggle('hidden', !isManager);
+
+            // Swap Requests Notification Badge
+            const swapCount = state.shifts.filter(s => s.swapRequested).length;
+            const swapBadge = document.getElementById('swapRequestsBadge');
+            if (swapCount > 0) {
+                swapBadge.textContent = swapCount;
+                swapBadge.classList.remove('hidden');
+                swapBadge.classList.add('flex');
+            } else {
+                swapBadge.classList.add('hidden');
+                swapBadge.classList.remove('flex');
+            }
+
+            if (state.selectedPvzId === 'all') {
+                root.style.setProperty('--brand-from', isManager ? '#a855f7' : '#0ea5e9');
+                root.style.setProperty('--brand-to', isManager ? '#6366f1' : '#10b981');
+                root.style.setProperty('--brand-glow', isManager ? 'rgba(168, 85, 247, 0.28)' : 'rgba(14, 165, 233, 0.28)');
+                badge.textContent = isManager ? 'PRO СЕТЬ' : 'ОПЕРАТОР';
+                subtitle.textContent = isManager
+                    ? `Все точки ПВЗ (${state.pvzPoints.length}) • Режим Управляющего`
+                    : `Личный кабинет • Ставка ${activeEmp ? activeEmp.defaultRate : 2500} ₽/смена`;
+                return;
+            }
+
+            const pvz = state.pvzPoints.find(p => p.id === state.selectedPvzId);
+            if (!pvz) return;
+
+            if (pvz.brand === 'WB') {
+                root.style.setProperty('--brand-from', '#cb11ab');
+                root.style.setProperty('--brand-to', '#7e22ce');
+                root.style.setProperty('--brand-glow', 'rgba(203, 17, 171, 0.34)');
+                badge.textContent = 'WILDBERRIES';
+            } else if (pvz.brand === 'Ozon') {
+                root.style.setProperty('--brand-from', '#005bff');
+                root.style.setProperty('--brand-to', '#00b4d8');
+                root.style.setProperty('--brand-glow', 'rgba(0, 91, 255, 0.34)');
+                badge.textContent = 'OZON';
+            } else {
+                root.style.setProperty('--brand-from', '#f59e0b');
+                root.style.setProperty('--brand-to', '#ea580c');
+                root.style.setProperty('--brand-glow', 'rgba(245, 158, 11, 0.32)');
+                badge.textContent = 'Я.МАРКЕТ';
+            }
+            subtitle.textContent = isManager
+                ? `${pvz.name} • База ${pvz.defaultRate} ₽/смена`
+                : `${pvz.name} • Кабинет сотрудника`;
+        }
+
+            return {
+                currentYear: 2026,
+                currentMonth: 9,
+                selectedPvzId: 'all',
+                quickPaintEmpId: 'emp_1',
+                pvzPoints,
+                employees,
+                shifts
+            };
+        }
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    state = { ...state, ...parsed };
+                } else {
+                    state = { ...state, ...createDefaultData() };
+                    saveState();
+                }
+            } catch (e) {
+                state = { ...state, ...createDefaultData() };
+            }
+            if (!state.quickPaintEmpId && state.employees.length > 0) {
+                state.quickPaintEmpId = state.employees[0].id;
+            }
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    currentYear: state.currentYear,
+                    currentMonth: state.currentMonth,
+                    selectedPvzId: state.selectedPvzId,
+                    quickPaintEmpId: state.quickPaintEmpId,
+                    pvzPoints: state.pvzPoints,
+                    employees: state.employees,
+                    shifts: state.shifts
+                }));
+            } catch (e) {}
+        }
+
+        // Dynamic Marketplace Theme Engine
+        function applyBrandTheme() {
+            const root = document.documentElement;
+            const badge = document.getElementById('activeBrandBadge');
+            const subtitle = document.getElementById('headerSubtitle');
+
+            if (state.selectedPvzId === 'all') {
+                root.style.setProperty('--brand-from', '#a855f7');
+                root.style.setProperty('--brand-to', '#6366f1');
+                root.style.setProperty('--brand-glow', 'rgba(168, 85, 247, 0.28)');
+                badge.textContent = 'PRO СЕТЬ';
+                subtitle.textContent = `Все точки ПВЗ (${state.pvzPoints.length}) • Сводный график`;
+                return;
+            }
+
+            const pvz = state.pvzPoints.find(p => p.id === state.selectedPvzId);
+            if (!pvz) return;
+
+            if (pvz.brand === 'WB') {
+                root.style.setProperty('--brand-from', '#cb11ab');
+                root.style.setProperty('--brand-to', '#7e22ce');
+                root.style.setProperty('--brand-glow', 'rgba(203, 17, 171, 0.34)');
+                badge.textContent = 'WILDBERRIES';
+            } else if (pvz.brand === 'Ozon') {
+                root.style.setProperty('--brand-from', '#005bff');
+                root.style.setProperty('--brand-to', '#00b4d8');
+                root.style.setProperty('--brand-glow', 'rgba(0, 91, 255, 0.34)');
+                badge.textContent = 'OZON';
+            } else {
+                root.style.setProperty('--brand-from', '#f59e0b');
+                root.style.setProperty('--brand-to', '#ea580c');
+                root.style.setProperty('--brand-glow', 'rgba(245, 158, 11, 0.32)');
+                badge.textContent = 'Я.МАРКЕТ';
+            }
+            subtitle.textContent = `${pvz.name} • База ${pvz.defaultRate} ₽/смена`;
+        }
+
+        // Smooth Odometer Number Counter Animation
+        function animateNumber(elId, startVal, endVal, duration = 450) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            if (startVal === endVal) {
+                el.textContent = endVal.toLocaleString('ru-RU') + ' ₽';
+                return;
+            }
+            const startTime = performance.now();
+            function tick(now) {
+                const progress = Math.min((now - startTime) / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3); // cubic ease out
+                const current = Math.round(startVal + (endVal - startVal) * eased);
+                el.textContent = current.toLocaleString('ru-RU') + ' ₽';
+                if (progress < 1) requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+        }
+
+        // Confetti Celebration Burst
+        function fireConfetti() {
+            const canvas = document.getElementById('confettiCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const pieces = Array.from({ length: 55 }, () => ({
+                x: canvas.width / 2 + (Math.random() - 0.5) * 120,
+                y: canvas.height * 0.45,
+                vx: (Math.random() - 0.5) * 14,
+                vy: -Math.random() * 14 - 4,
+                size: Math.random() * 7 + 4,
+                color: ['#a855f7', '#3b82f6', '#10b981', '#f59e0b', '#ec4899'][Math.floor(Math.random() * 5)],
+                rot: Math.random() * 360,
+                vRot: (Math.random() - 0.5) * 12
+            }));
+
+            let frame = 0;
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                pieces.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.45; // gravity
+                    p.rot += p.vRot;
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.rot * Math.PI) / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    ctx.restore();
+                });
+                frame++;
+                if (frame < 75) requestAnimationFrame(draw);
+                else ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+            requestAnimationFrame(draw);
+        }
+
+        // Helpers
+        function formatDateKey(year, monthZeroIndexed, day) {
+            return `${year}-${String(monthZeroIndexed + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+
+        function formatMoney(num) {
+            return (Number(num) || 0).toLocaleString('ru-RU') + ' ₽';
+        }
+
+        function calcShiftTotal(shift) {
+            return (Number(shift.rate) || 0) + (Number(shift.bonus) || 0) - (Number(shift.penalty) || 0);
+        }
+
+        function getBrandBadge(brand) {
+            if (brand === 'WB') return '<span class="px-1.5 py-0.5 text-[9px] font-black rounded-md bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white">WB</span>';
+            if (brand === 'Ozon') return '<span class="px-1.5 py-0.5 text-[9px] font-black rounded-md bg-gradient-to-r from-blue-600 to-cyan-500 text-white">OZON</span>';
+            return '<span class="px-1.5 py-0.5 text-[9px] font-black rounded-md bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950">Я.М</span>';
+        }
+
+        function showToast(message, icon = 'fa-circle-check') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'px-4 py-3 rounded-2xl bg-slate-900/95 dark:bg-white/95 text-white dark:text-slate-950 backdrop-blur-xl shadow-2xl border border-white/10 text-xs font-extrabold flex items-center gap-2.5 tab-view-enter';
+            toast.innerHTML = `<i class="fa-solid ${icon} text-emerald-400 dark:text-emerald-600 text-sm"></i><span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-8px)';
+                toast.style.transition = 'all 0.25s ease';
+                setTimeout(() => toast.remove(), 250);
+            }, 2400);
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('themeIcon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                icon.className = 'fa-solid fa-moon text-sm';
+            } else {
+                html.classList.add('dark');
+                icon.className = 'fa-solid fa-sun text-sm';
+            }
+        }
+
+        // Switch Tabs with Fluid Enter Animation
+        function switchTab(tabName) {
+            ['calendar', 'payroll', 'employees', 'settings'].forEach(t => {
+                const sec = document.getElementById(`tab-${t}`);
+                const btn = document.getElementById(`nav-${t}`);
+                const pill = btn.querySelector('.nav-pill');
+                const lbl = btn.querySelector('.nav-label');
+
+                if (t === tabName) {
+                    sec.classList.remove('hidden');
+                    sec.classList.remove('tab-view-enter');
+                    void sec.offsetWidth; // trigger reflow for animation
+                    sec.classList.add('tab-view-enter');
+
+                    pill.className = 'nav-pill px-5 py-1.5 rounded-2xl brand-gradient-bg text-white shadow-md transition-all duration-300 scale-105';
+                    lbl.className = 'nav-label text-[10px] font-extrabold text-slate-900 dark:text-white';
+                } else {
+                    sec.classList.add('hidden');
+                    pill.className = 'nav-pill px-5 py-1.5 rounded-2xl text-slate-400 transition-all duration-300';
+                    lbl.className = 'nav-label text-[10px] font-semibold text-slate-400';
+                }
+            });
+            renderAll(false);
+        }
+
+        // Render PVZ Switcher Chips
+        function renderPvzFilterBar() {
+            const bar = document.getElementById('pvzFilterBar');
+            let html = `
+                <button onclick="selectPvzFilter('all')" class="tactile shrink-0 px-3.5 py-1.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-1.5 ${
+                    state.selectedPvzId === 'all'
+                        ? 'brand-gradient-bg text-white shadow-md'
+                        : 'bg-slate-200/70 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300'
+                }">
+                    <i class="fa-solid fa-layer-group text-[10px]"></i>
+                    <span>Все ПВЗ</span>
+                </button>
+            `;
+
+            state.pvzPoints.forEach(pvz => {
+                const active = state.selectedPvzId === pvz.id;
+                html += `
+                    <button onclick="selectPvzFilter('${pvz.id}')" class="tactile shrink-0 px-3.5 py-1.5 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 ${
+                        active
+                            ? 'brand-gradient-bg text-white shadow-md scale-[1.02]'
+                            : 'bg-slate-200/70 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300'
+                    }">
+                        <span class="font-black text-[10px] opacity-90">${pvz.brand}</span>
+                        <span>${pvz.name}</span>
+                    </button>
+                `;
+            });
+
+            bar.innerHTML = html;
+        }
+
+        function selectPvzFilter(pvzId) {
+            state.selectedPvzId = pvzId;
+            saveState();
+            applyBrandTheme();
+            renderAll(true);
+        }
+
+        function changeMonth(delta) {
+            state.currentMonth += delta;
+            if (state.currentMonth > 11) { state.currentMonth = 0; state.currentYear++; }
+            else if (state.currentMonth < 0) { state.currentMonth = 11; state.currentYear--; }
+            saveState();
+            renderAll(true);
+        }
+
+        function goToToday() {
+            state.currentYear = 2026;
+            state.currentMonth = 9;
+            saveState();
+            renderAll(true);
+            showToast('Октябрь 2026 • Текущий месяц');
+        }
+
+        function getFilteredMonthShifts() {
+            const prefix = `${state.currentYear}-${String(state.currentMonth + 1).padStart(2, '0')}-`;
+            return state.shifts.filter(s => {
+                const matchMonth = s.date.startsWith(prefix);
+                const matchPvz = state.selectedPvzId === 'all' || s.pvzId === state.selectedPvzId;
+                return matchMonth && matchPvz;
+            });
+        }
+
+        // Quick Paint Mode (Быстрая кисть)
+        function toggleQuickPaint() {
+            state.quickPaintActive = !state.quickPaintActive;
+            const btn = document.getElementById('quickPaintToggleBtn');
+            const palette = document.getElementById('quickPaintPalette');
+
+            if (state.quickPaintActive) {
+                btn.textContent = 'Активна ✨';
+                btn.className = 'tactile px-3 py-1 rounded-xl text-[11px] font-extrabold brand-gradient-bg text-white pulse-active';
+                palette.classList.remove('hidden');
+                renderQuickPaintPalette();
+                showToast('Режим кисти: нажимайте на дни календаря!');
+            } else {
+                btn.textContent = 'Выкл';
+                btn.className = 'tactile px-3 py-1 rounded-xl text-[11px] font-bold bg-slate-200/80 dark:bg-white/[0.08] text-slate-600 dark:text-slate-300';
+                palette.classList.add('hidden');
+            }
+        }
+
+        function renderQuickPaintPalette() {
+            const palette = document.getElementById('quickPaintPalette');
+            if (!state.quickPaintActive) return;
+
+            palette.innerHTML = state.employees.map(emp => {
+                const active = state.quickPaintEmpId === emp.id;
+                return `
+                    <button onclick="selectQuickPaintEmp('${emp.id}')" class="tactile shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
+                        active ? 'ring-2 ring-white shadow-md scale-105 text-white' : 'opacity-70 hover:opacity-100 text-white'
+                    }" style="background-color: ${emp.color}">
+                        <span>${emp.name.split(' ')[0]}</span>
+                        <span class="text-[10px] font-mono opacity-85">${emp.defaultRate}₽</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectQuickPaintEmp(empId) {
+            state.quickPaintEmpId = empId;
+            renderQuickPaintPalette();
+        }
+
+        // Handle Calendar Day Tap (Either Quick Paint or Open Inspector Sheet)
+        function onCalendarDayTap(dateKey, cellElement) {
+            if (state.userRole === 'manager' && state.quickPaintActive) {
+                const emp = state.employees.find(e => e.id === state.quickPaintEmpId) || state.employees[0];
+                const targetPvzId = state.selectedPvzId === 'all' ? state.pvzPoints[0].id : state.selectedPvzId;
+
+                const existingIdx = state.shifts.findIndex(s => s.date === dateKey && s.pvzId === targetPvzId && s.employeeId === emp.id);
+                if (existingIdx !== -1) {
+                    state.shifts.splice(existingIdx, 1);
+                } else {
+                    state.shifts.push({
+                        id: 'sh_qp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
+                        date: dateKey,
+                        pvzId: targetPvzId,
+                        employeeId: emp.id,
+                        rate: emp.defaultRate,
+                        hours: 12,
+                        bonus: 0,
+                        penalty: 0,
+                        status: 'planned',
+                        swapRequested: false,
+                        note: 'Быстрая кисть'
+                    });
+                }
+                saveState();
+                renderAll(false);
+                const updatedCell = document.querySelector(`[data-date="${dateKey}"]`);
+                if (updatedCell) updatedCell.classList.add('animate-pop');
+                return;
+            }
+
+            openDayModal(dateKey);
+        }
+
+        // Render Hero KPI + Calendar Grid (Adapts to Manager vs Employee)
+        function renderCalendar(animateCascade = false) {
+            document.getElementById('currentMonthLabel').textContent = `${MONTHS_RU[state.currentMonth]} ${state.currentYear}`;
+
+            const isManager = state.userRole === 'manager';
+            const activeEmp = getActiveEmployee();
+            const allMonthShifts = getFilteredMonthShifts();
+
+            // KPI computation: Manager sees total PVZ FOT; Employee sees their own earnings
+            const kpiShifts = isManager
+                ? allMonthShifts
+                : allMonthShifts.filter(s => s.employeeId === activeEmp.id);
+
+            let totalFot = 0, paidFot = 0, unpaidFot = 0;
+            kpiShifts.forEach(s => {
+                const sum = calcShiftTotal(s);
+                totalFot += sum;
+                if (s.status === 'paid') paidFot += sum;
+                else unpaidFot += sum;
+            });
+
+            document.getElementById('kpiLabel1').textContent = isManager ? 'Общий ФОТ' : 'Мой заработок';
+            document.getElementById('kpiLabel2').textContent = isManager ? 'Выплачено' : 'Получено';
+            document.getElementById('kpiLabel3').textContent = isManager ? 'К выплате' : 'На руки (Долг)';
+            document.getElementById('kpiSub3').textContent = isManager ? 'Ожидает ЗП' : 'К получению';
+
+            animateNumber('heroTotalFot', numberCache.fot, totalFot);
+            animateNumber('heroPaidFot', numberCache.paid, paidFot);
+            animateNumber('heroUnpaidFot', numberCache.unpaid, unpaidFot);
+            numberCache.fot = totalFot;
+            numberCache.paid = paidFot;
+            numberCache.unpaid = unpaidFot;
+
+            document.getElementById('heroShiftsCount').textContent = isManager
+                ? `${kpiShifts.length} смен всего`
+                : `${kpiShifts.length} моих смен`;
+            const pct = totalFot > 0 ? Math.round((paidFot / totalFot) * 100) : 0;
+            document.getElementById('heroPaidPercent').textContent = `${pct}% выплачено`;
+            document.getElementById('payoutProgressBar').style.width = `${pct}%`;
+
+            // Manager Swap Alert Banner
+            const swapShifts = allMonthShifts.filter(s => s.swapRequested);
+            const managerAlert = document.getElementById('managerSwapAlert');
+            if (isManager && swapShifts.length > 0) {
+                managerAlert.classList.remove('hidden');
+                document.getElementById('managerSwapAlertSub').textContent = `Запросов на замену в этом месяце: ${swapShifts.length}`;
+            } else {
+                managerAlert.classList.add('hidden');
+            }
+
+            // Employee Specific Tools: Filter Buttons & Next Shift Card
+            if (!isManager && activeEmp) {
+                const mineBtn = document.getElementById('empFilterMineBtn');
+                const allBtn = document.getElementById('empFilterAllBtn');
+                if (state.employeeCalendarFilter === 'mine') {
+                    mineBtn.className = 'tactile flex-1 py-1.5 rounded-xl text-xs font-extrabold brand-gradient-bg text-white shadow-xs';
+                    allBtn.className = 'tactile flex-1 py-1.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400';
+                } else {
+                    allBtn.className = 'tactile flex-1 py-1.5 rounded-xl text-xs font-extrabold brand-gradient-bg text-white shadow-xs';
+                    mineBtn.className = 'tactile flex-1 py-1.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400';
+                }
+                renderEmployeeNextShiftBanner(activeEmp, kpiShifts);
+            }
+
+            // Render Calendar Days
+            const grid = document.getElementById('calendarGrid');
+            const firstDay = new Date(state.currentYear, state.currentMonth, 1);
+            const daysInMonth = new Date(state.currentYear, state.currentMonth + 1, 0).getDate();
+            const startOffset = (firstDay.getDay() + 6) % 7;
+
+            let html = '';
+            for (let i = 0; i < startOffset; i++) {
+                html += `<div class="min-h-[78px] rounded-2xl bg-slate-200/30 dark:bg-white/[0.015]"></div>`;
+            }
+
+            const todayKey = '2026-10-31';
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateKey = formatDateKey(state.currentYear, state.currentMonth, day);
+                let dayShifts = allMonthShifts.filter(s => s.date === dateKey);
+
+                if (!isManager && state.employeeCalendarFilter === 'mine') {
+                    dayShifts = dayShifts.filter(s => s.employeeId === activeEmp.id || s.swapRequested);
+                }
+
+                const isToday = dateKey === todayKey;
+                const hasMyShift = !isManager && dayShifts.some(s => s.employeeId === activeEmp.id);
+
+                let dayTotal = 0;
+                let pillsHtml = '';
+
+                dayShifts.slice(0, 2).forEach(shift => {
+                    const emp = state.employees.find(e => e.id === shift.employeeId);
+                    dayTotal += calcShiftTotal(shift);
+                    const firstName = emp ? emp.name.split(' ')[0] : 'Опер.';
+                    const color = emp ? emp.color : '#64748b';
+                    const dotColor = shift.swapRequested
+                        ? 'bg-rose-400 animate-ping'
+                        : shift.status === 'paid' ? 'bg-emerald-300' : shift.status === 'worked' ? 'bg-sky-300' : 'bg-amber-300';
+
+                    pillsHtml += `
+                        <div class="flex items-center justify-between gap-1 px-1.5 py-0.5 rounded-lg text-[9px] font-extrabold text-white truncate shadow-xs" style="background-color: ${color}">
+                            <div class="flex items-center gap-1 truncate">
+                                <span class="w-1.5 h-1.5 rounded-full ${dotColor} shrink-0"></span>
+                                <span class="truncate">${!isManager && shift.employeeId === activeEmp.id ? 'Моя смена' : firstName}</span>
+                            </div>
+                            ${shift.swapRequested ? '<i class="fa-solid fa-retweet text-[8px] text-rose-200"></i>' : ''}
+                        </div>
+                    `;
+                });
+
+                if (dayShifts.length > 2) {
+                    for (let k = 2; k < dayShifts.length; k++) dayTotal += calcShiftTotal(dayShifts[k]);
+                    pillsHtml += `<div class="text-[8px] font-extrabold text-center text-slate-400">+${dayShifts.length - 2} ещё</div>`;
+                }
+
+                const delayStyle = animateCascade ? `style="animation-delay: ${day * 12}ms"` : '';
+                const cascadeClass = animateCascade ? 'animate-cell' : '';
+                const myGlowClass = hasMyShift ? 'my-shift-glow' : '';
+
+                html += `
+                    <button data-date="${dateKey}" onclick="onCalendarDayTap('${dateKey}', this)" ${delayStyle} class="${cascadeClass} ${myGlowClass} tactile min-h-[78px] p-1.5 rounded-2xl border text-left flex flex-col justify-between relative overflow-hidden ${
+                        isToday
+                            ? 'bg-purple-500/15 dark:bg-purple-500/20 border-purple-500 shadow-md shadow-purple-500/10'
+                            : dayShifts.length > 0
+                            ? 'glass-card hover:border-purple-400/60'
+                            : 'bg-white/50 dark:bg-white/[0.025] border-slate-200/60 dark:border-white/[0.05]'
+                    }">
+                        <div class="w-full flex items-center justify-between">
+                            <span class="text-[11px] font-black ${
+                                isToday ? 'px-1.5 py-0.2 rounded-md brand-gradient-bg text-white' : 'text-slate-700 dark:text-slate-200'
+                            }">${day}</span>
+                            ${dayTotal > 0 ? `<span class="text-[9px] font-extrabold font-mono text-emerald-600 dark:text-emerald-400 tracking-tighter">${dayTotal}</span>` : ''}
+                        </div>
+                        <div class="w-full space-y-1 mt-1">
+                            ${pillsHtml}
+                        </div>
+                    </button>
+                `;
+            }
+
+            grid.innerHTML = html;
+        }
+
+        function renderEmployeeNextShiftBanner(activeEmp, myShifts) {
+            const card = document.getElementById('employeeNextShiftCard');
+            const sorted = myShifts.slice().sort((a, b) => a.date.localeCompare(b.date));
+            const nextShift = sorted.find(s => s.status === 'planned') || sorted[sorted.length - 1];
+
+            if (!nextShift) {
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-[10px] font-extrabold uppercase tracking-wider text-purple-200">График смен</div>
+                            <div class="text-sm font-black mt-0.5">В этом месяце смен пока не назначено</div>
+                            <div class="text-[11px] text-slate-300 mt-0.5">Нажмите на свободный день в календаре, чтобы взять доп. смену</div>
+                        </div>
+                        <i class="fa-regular fa-calendar-plus text-2xl text-purple-300"></i>
+                    </div>
+                `;
+                return;
+            }
+
+            const pvz = state.pvzPoints.find(p => p.id === nextShift.pvzId) || { brand: 'WB', name: 'ПВЗ' };
+            const [y, m, d] = nextShift.date.split('-').map(Number);
+            const sum = calcShiftTotal(nextShift);
+
+            card.innerHTML = `
+                <div class="flex items-center justify-between gap-2">
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="px-2 py-0.5 rounded-full bg-white/15 text-[10px] font-extrabold uppercase tracking-wider">
+                                ${nextShift.status === 'planned' ? '🔥 Ближайшая смена' : '✅ Крайняя смена'}
+                            </span>
+                            ${getBrandBadge(pvz.brand)}
+                            <span class="text-xs font-bold text-purple-100">${pvz.name}</span>
+                        </div>
+                        <div class="text-base font-black mt-1">${d} ${MONTHS_GENITIVE_RU[m - 1]} • Начисление ${formatMoney(sum)}</div>
+                    </div>
+                    <div class="flex flex-col gap-1.5 shrink-0">
+                        ${nextShift.status === 'planned' ? `
+                            <button onclick="employeeConfirmShift('${nextShift.id}')" class="tactile px-3 py-1.5 rounded-xl bg-emerald-400 text-slate-950 font-black text-[11px] shadow-md">
+                                <i class="fa-solid fa-check mr-1"></i>Я на смене
+                            </button>
+                        ` : `
+                            <span class="px-2.5 py-1 rounded-xl bg-emerald-500/25 border border-emerald-400/40 text-emerald-200 text-[10px] font-extrabold text-center">
+                                Отработана ✓
+                            </span>
+                        `}
+                        <button onclick="employeeToggleSwap('${nextShift.id}')" class="tactile px-2.5 py-1 rounded-xl bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold">
+                            <i class="fa-solid fa-retweet mr-1"></i>${nextShift.swapRequested ? 'Отменить замену' : 'Нужна подмена'}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function employeeConfirmShift(shiftId) {
+            const s = state.shifts.find(x => x.id === shiftId);
+            if (!s) return;
+            s.status = 'worked';
+            saveState();
+            renderAll(false);
+            fireConfetti();
+            showToast('Выход на смену подтвержден! Отличной смены 📦');
+        }
+
+        function employeeToggleSwap(shiftId) {
+            const s = state.shifts.find(x => x.id === shiftId);
+            if (!s) return;
+            s.swapRequested = !s.swapRequested;
+            saveState();
+            if (state.selectedDateStr) renderDayModalShiftsList();
+            renderAll(false);
+            showToast(s.swapRequested ? 'Запрос на подмену отправлен управляющему и коллегам 🔄' : 'Запрос на подмену снят');
+        }
+
+        function employeeTakeShift(shiftId) {
+            const s = state.shifts.find(x => x.id === shiftId);
+            const emp = getActiveEmployee();
+            if (!s || !emp) return;
+            s.employeeId = emp.id;
+            s.rate = emp.defaultRate;
+            s.swapRequested = false;
+            s.note = `Подмена: взял(а) ${emp.name}`;
+            saveState();
+            if (state.selectedDateStr) renderDayModalShiftsList();
+            renderAll(false);
+            fireConfetti();
+            showToast(`Вы успешно забрали смену себе (+${emp.defaultRate} ₽)!`);
+        }
+
+        function employeeTakeFreeDay(dateStr) {
+            const emp = getActiveEmployee();
+            if (!emp) return;
+            const targetPvzId = state.selectedPvzId === 'all' ? state.pvzPoints[0].id : state.selectedPvzId;
+            state.shifts.push({
+                id: 'sh_self_' + Date.now(),
+                date: dateStr,
+                pvzId: targetPvzId,
+                employeeId: emp.id,
+                rate: emp.defaultRate,
+                hours: 12,
+                bonus: 0,
+                penalty: 0,
+                status: 'planned',
+                swapRequested: false,
+                note: 'Запись сотрудника на доп. смену'
+            });
+            saveState();
+            renderDayModalShiftsList();
+            renderAll(false);
+            fireConfetti();
+            showToast('Дополнительная смена добавлена в ваш график!');
+        }
+
+        // ==========================================================
+        // DAY INSPECTOR SHEET LOGIC (MANAGER VS EMPLOYEE)
+        // ==========================================================
+        function openDayModal(dateKey) {
+            state.selectedDateStr = dateKey;
+            const [y, m, d] = dateKey.split('-').map(Number);
+            const dateObj = new Date(y, m - 1, d);
+
+            document.getElementById('dayModalWeekday').textContent = WEEKDAYS_FULL_RU[dateObj.getDay()];
+            document.getElementById('dayModalTitle').textContent = `${d} ${MONTHS_GENITIVE_RU[m - 1]} ${y}`;
+
+            const isManager = state.userRole === 'manager';
+            document.getElementById('shiftForm').classList.toggle('hidden', !isManager);
+            document.getElementById('employeeDayActionBox').classList.toggle('hidden', isManager);
+
+            if (isManager) {
+                const pvzSel = document.getElementById('shiftPvzSelect');
+                const empSel = document.getElementById('shiftEmployeeSelect');
+
+                pvzSel.innerHTML = state.pvzPoints.map(p =>
+                    `<option value="${p.id}" ${state.selectedPvzId === p.id ? 'selected' : ''}>${p.brand} • ${p.name}</option>`
+                ).join('');
+
+                empSel.innerHTML = state.employees.map(e =>
+                    `<option value="${e.id}">${e.name} (${e.defaultRate}₽)</option>`
+                ).join('');
+
+                resetShiftForm();
+            }
+
+            renderDayModalShiftsList();
+
+            const modal = document.getElementById('dayModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeDayModal() {
+            const modal = document.getElementById('dayModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function setQuickRate(val) {
+            document.getElementById('shiftRateInput').value = val;
+        }
+
+        function onShiftFormSelectionChange() {
+            if (document.getElementById('shiftEditId').value) return;
+            const empId = document.getElementById('shiftEmployeeSelect').value;
+            const emp = state.employees.find(e => e.id === empId);
+            if (emp) document.getElementById('shiftRateInput').value = emp.defaultRate;
+        }
+
+        function resetShiftForm() {
+            document.getElementById('shiftEditId').value = '';
+            document.getElementById('shiftFormHeader').innerHTML = `<i class="fa-solid fa-plus-circle"></i><span>Назначить смену</span>`;
+            document.getElementById('shiftSubmitBtn').textContent = 'Сохранить смену';
+            document.getElementById('cancelEditShiftBtn').classList.add('hidden');
+            document.getElementById('shiftHoursInput').value = 12;
+            document.getElementById('shiftBonusInput').value = 0;
+            document.getElementById('shiftPenaltyInput').value = 0;
+            document.getElementById('shiftStatusSelect').value = 'worked';
+            document.getElementById('shiftNoteInput').value = '';
+            onShiftFormSelectionChange();
+        }
+
+        function renderDayModalShiftsList() {
+            const listEl = document.getElementById('dayShiftsList');
+            const dayShifts = state.shifts.filter(s => s.date === state.selectedDateStr);
+            const isManager = state.userRole === 'manager';
+            const activeEmp = getActiveEmployee();
+
+            let totalDay = 0;
+            dayShifts.forEach(s => totalDay += calcShiftTotal(s));
+            document.getElementById('dayModalTotalBadge').textContent = formatMoney(totalDay);
+
+            // Render Employee Self-Service Box if in Employee Mode
+            if (!isManager && activeEmp) {
+                const empBox = document.getElementById('employeeDayActionBox');
+                const myShiftToday = dayShifts.find(s => s.employeeId === activeEmp.id);
+                if (!myShiftToday) {
+                    empBox.innerHTML = `
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <div class="text-xs font-extrabold text-sky-400">У вас выходной в этот день</div>
+                                <div class="text-[11px] text-slate-400">Хотите выйти на подработку по ставке ${activeEmp.defaultRate} ₽?</div>
+                            </div>
+                            <button onclick="employeeTakeFreeDay('${state.selectedDateStr}')" class="tactile px-3.5 py-2 rounded-2xl brand-gradient-bg text-white text-xs font-extrabold shrink-0 shadow-md">
+                                🙋‍♂️ Взять смену
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    empBox.innerHTML = `
+                        <div class="flex items-center justify-between gap-2">
+                            <div>
+                                <div class="text-xs font-extrabold text-emerald-400">Это ваш рабочий день</div>
+                                <div class="text-[11px] text-slate-400">Итого за смену: <b class="text-white font-mono">${formatMoney(calcShiftTotal(myShiftToday))}</b></div>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                ${myShiftToday.status === 'planned' ? `
+                                    <button onclick="employeeConfirmShift('${myShiftToday.id}'); renderDayModalShiftsList();" class="tactile px-3 py-1.5 rounded-xl bg-emerald-500 text-slate-950 text-xs font-extrabold">
+                                        ✅ Подтвердить
+                                    </button>
+                                ` : ''}
+                                <button onclick="employeeToggleSwap('${myShiftToday.id}')" class="tactile px-3 py-1.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold">
+                                    🔄 ${myShiftToday.swapRequested ? 'Отменить подмену' : 'Попросить подмену'}
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            if (dayShifts.length === 0) {
+                listEl.innerHTML = `
+                    <div class="p-4 rounded-2xl border border-dashed border-slate-300 dark:border-white/10 text-center text-xs text-slate-400">
+                        Смен на этот день пока не назначено.
+                    </div>
+                `;
+                return;
+            }
+
+            listEl.innerHTML = dayShifts.map(shift => {
+                const emp = state.employees.find(e => e.id === shift.employeeId) || { name: 'Оператор', color: '#64748b' };
+                const pvz = state.pvzPoints.find(p => p.id === shift.pvzId) || { brand: 'WB', name: 'ПВЗ' };
+                const total = calcShiftTotal(shift);
+
+                const statusBadge = shift.status === 'paid'
+                    ? `<span class="px-2.5 py-1 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[11px] font-extrabold"><i class="fa-solid fa-check-double mr-1"></i>Оплачена</span>`
+                    : shift.status === 'worked'
+                    ? `<span class="px-2.5 py-1 rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/30 text-[11px] font-extrabold"><i class="fa-solid fa-check mr-1"></i>Отработана</span>`
+                    : `<span class="px-2.5 py-1 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[11px] font-extrabold"><i class="fa-regular fa-clock mr-1"></i>Запланирована</span>`;
+
+                const managerActions = isManager ? `
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-white/[0.06]">
+                        <button onclick="cycleShiftStatus('${shift.id}')" class="tactile text-left">${statusBadge}</button>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="editShiftInModal('${shift.id}')" class="tactile px-2.5 py-1 rounded-xl bg-slate-200 dark:bg-white/10 text-xs font-bold">Изменить ставку</button>
+                            <button onclick="deleteShift('${shift.id}')" class="tactile w-7 h-7 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                        </div>
+                    </div>
+                ` : `
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-white/[0.06]">
+                        ${statusBadge}
+                        ${shift.swapRequested && shift.employeeId !== activeEmp.id ? `
+                            <button onclick="employeeTakeShift('${shift.id}')" class="tactile px-3 py-1 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black">
+                                Забрать подмену себе
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+
+                return `
+                    <div class="p-3.5 rounded-2xl bg-slate-100/70 dark:bg-white/[0.05] border ${shift.swapRequested ? 'border-rose-500/50' : 'border-slate-200 dark:border-white/[0.08]'} space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white font-extrabold text-xs shadow-sm" style="background-color: ${emp.color}">
+                                    ${emp.name.slice(0,2).toUpperCase()}
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-1.5">
+                                        ${getBrandBadge(pvz.brand)}
+                                        <span class="text-[11px] font-bold text-slate-400">${pvz.name} • ${shift.hours || 12}ч</span>
+                                        ${shift.swapRequested ? '<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[9px] font-extrabold">Ищет подмену</span>' : ''}
+                                    </div>
+                                    <div class="font-extrabold text-sm">${emp.name}</div>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-black font-mono text-sm text-emerald-500">${formatMoney(total)}</div>
+                                <div class="text-[10px] font-mono text-slate-400">
+                                    База ${shift.rate}₽ ${shift.bonus > 0 ? `<span class="text-sky-400">+${shift.bonus}</span>` : ''} ${shift.penalty > 0 ? `<span class="text-rose-400">-${shift.penalty}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        ${shift.note ? `<div class="text-[11px] text-slate-400 bg-black/20 px-2.5 py-1 rounded-xl">${shift.note}</div>` : ''}
+                        ${managerActions}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function saveShiftFromDayModal(e) {
+            e.preventDefault();
+            const editId = document.getElementById('shiftEditId').value;
+            const pvzId = document.getElementById('shiftPvzSelect').value;
+            const employeeId = document.getElementById('shiftEmployeeSelect').value;
+            const rate = Number(document.getElementById('shiftRateInput').value) || 0;
+            const hours = Number(document.getElementById('shiftHoursInput').value) || 12;
+            const bonus = Number(document.getElementById('shiftBonusInput').value) || 0;
+            const penalty = Number(document.getElementById('shiftPenaltyInput').value) || 0;
+            const status = document.getElementById('shiftStatusSelect').value;
+            const note = document.getElementById('shiftNoteInput').value.trim();
+
+            if (editId) {
+                const idx = state.shifts.findIndex(s => s.id === editId);
+                if (idx !== -1) state.shifts[idx] = { ...state.shifts[idx], pvzId, employeeId, rate, hours, bonus, penalty, status, note };
+                showToast('Смена обновлена');
+            } else {
+                state.shifts.push({
+                    id: 'sh_' + Date.now(),
+                    date: state.selectedDateStr,
+                    pvzId, employeeId, rate, hours, bonus, penalty, status, note
+                });
+                showToast('Смена добавлена в календарь');
+            }
+
+            saveState();
+            resetShiftForm();
+            renderDayModalShiftsList();
+            renderAll(false);
+        }
+
+        function editShiftInModal(shiftId) {
+            const s = state.shifts.find(x => x.id === shiftId);
+            if (!s) return;
+            document.getElementById('shiftEditId').value = s.id;
+            document.getElementById('shiftPvzSelect').value = s.pvzId;
+            document.getElementById('shiftEmployeeSelect').value = s.employeeId;
+            document.getElementById('shiftRateInput').value = s.rate;
+            document.getElementById('shiftHoursInput').value = s.hours || 12;
+            document.getElementById('shiftBonusInput').value = s.bonus || 0;
+            document.getElementById('shiftPenaltyInput').value = s.penalty || 0;
+            document.getElementById('shiftStatusSelect').value = s.status;
+            document.getElementById('shiftNoteInput').value = s.note || '';
+            document.getElementById('shiftSubmitBtn').textContent = 'Обновить смену';
+            document.getElementById('cancelEditShiftBtn').classList.remove('hidden');
+        }
+
+        function cycleShiftStatus(shiftId) {
+            const s = state.shifts.find(x => x.id === shiftId);
+            if (!s) return;
+            const order = ['planned', 'worked', 'paid'];
+            s.status = order[(order.indexOf(s.status) + 1) % order.length];
+            saveState();
+            renderDayModalShiftsList();
+            renderAll(false);
+        }
+
+        function deleteShift(shiftId) {
+            state.shifts = state.shifts.filter(s => s.id !== shiftId);
+            saveState();
+            renderDayModalShiftsList();
+            renderAll(false);
+            showToast('Смена удалена', 'fa-trash-can');
+        }
+
+        // ==========================================================
+        // PAYROLL (MANAGER) & PERSONAL INCOME (EMPLOYEE)
+        // ==========================================================
+        function renderPayroll() {
+            const monthShifts = getFilteredMonthShifts();
+            const list = document.getElementById('payrollEmployeeList');
+
+            list.innerHTML = state.employees.map(emp => {
+                const empShifts = monthShifts.filter(s => s.employeeId === emp.id);
+                let base = 0, bonus = 0, penalty = 0, paid = 0, unpaid = 0, totalHours = 0;
+
+                empShifts.forEach(s => {
+                    const tot = calcShiftTotal(s);
+                    base += Number(s.rate) || 0;
+                    bonus += Number(s.bonus) || 0;
+                    penalty += Number(s.penalty) || 0;
+                    totalHours += Number(s.hours) || 12;
+                    if (s.status === 'paid') paid += tot;
+                    else unpaid += tot;
+                });
+
+                const finalSum = base + bonus - penalty;
+
+                return `
+                    <div class="glass-card rounded-3xl p-4 space-y-3 shadow-md">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-black text-sm shadow-md" style="background-color: ${emp.color}">
+                                    ${emp.name.slice(0,2).toUpperCase()}
+                                </div>
+                                <div>
+                                    <h3 class="font-extrabold text-sm">${emp.name}</h3>
+                                    <p class="text-[11px] text-slate-400">${empShifts.length} смен • ${totalHours} ч • Ставка ${emp.defaultRate}₽</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-[10px] font-bold uppercase text-slate-400">Начислено</div>
+                                <div class="text-base font-black font-mono">${formatMoney(finalSum)}</div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 text-center bg-slate-100/80 dark:bg-white/[0.04] p-2.5 rounded-2xl text-xs">
+                            <div>
+                                <span class="text-[10px] text-slate-400 block">База</span>
+                                <span class="font-extrabold font-mono">${formatMoney(base)}</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-slate-400 block">Премии / Штрафы</span>
+                                <span class="font-extrabold font-mono text-sky-400">+${bonus}</span> / <span class="font-extrabold font-mono text-rose-400">-${penalty}</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-slate-400 block">К выплате</span>
+                                <span class="font-black font-mono ${unpaid > 0 ? 'text-amber-500' : 'text-emerald-400'}">${unpaid > 0 ? formatMoney(unpaid) : 'Оплачено ✓'}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 pt-1">
+                            <button onclick="copyPayslip('${emp.id}')" class="tactile flex-1 py-2.5 px-3 rounded-2xl bg-slate-200/80 dark:bg-white/[0.07] text-xs font-extrabold flex items-center justify-center gap-1.5">
+                                <i class="fa-brands fa-telegram text-sky-400 text-sm"></i>
+                                <span>Расчетный лист</span>
+                            </button>
+                            ${unpaid > 0 ? `
+                                <button onclick="payAllEmployee('${emp.id}')" class="tactile flex-1 py-2.5 px-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 text-xs font-black flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20">
+                                    <i class="fa-solid fa-check-double"></i>
+                                    <span>Выплатить ${formatMoney(unpaid)}</span>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Also render Employee Personal Income View
+            renderEmployeeIncomeView();
+        }
+
+        function renderEmployeeIncomeView() {
+            const container = document.getElementById('employeeIncomeView');
+            const emp = getActiveEmployee();
+            if (!emp) return;
+
+            const myShifts = getFilteredMonthShifts()
+                .filter(s => s.employeeId === emp.id)
+                .sort((a, b) => b.date.localeCompare(a.date));
+
+            let base = 0, bonus = 0, penalty = 0, paid = 0, unpaid = 0;
+            myShifts.forEach(s => {
+                const tot = calcShiftTotal(s);
+                base += Number(s.rate) || 0;
+                bonus += Number(s.bonus) || 0;
+                penalty += Number(s.penalty) || 0;
+                if (s.status === 'paid') paid += tot;
+                else unpaid += tot;
+            });
+
+            container.innerHTML = `
+                <div class="glass-card rounded-3xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-base shadow-lg" style="background-color: ${emp.color}">
+                                ${emp.name.slice(0,2).toUpperCase()}
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-extrabold uppercase tracking-wider text-sky-400">Мой расчетный лист</span>
+                                <h3 class="font-black text-base">${emp.name}</h3>
+                                <p class="text-[11px] text-slate-400">Базовая ставка: ${formatMoney(emp.defaultRate)} за смену</p>
+                            </div>
+                        </div>
+                        <button onclick="copyPayslip('${emp.id}')" class="tactile px-3 py-2 rounded-2xl brand-gradient-bg text-white text-xs font-extrabold shadow-md">
+                            <i class="fa-regular fa-copy mr-1"></i>Скачать чек
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 text-center bg-slate-100/80 dark:bg-white/[0.04] p-3 rounded-2xl text-xs">
+                        <div>
+                            <span class="text-[10px] text-slate-400 block">По ставке (${myShifts.length} см.)</span>
+                            <span class="font-extrabold font-mono">${formatMoney(base)}</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 block">Премии / Удерж.</span>
+                            <span class="font-extrabold font-mono text-sky-400">+${bonus}₽</span> / <span class="font-extrabold font-mono text-rose-400">-${penalty}₽</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 block">Остаток на руки</span>
+                            <span class="font-black font-mono text-amber-400">${formatMoney(unpaid)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 px-1">Детализация моих смен за месяц</h4>
+                    ${myShifts.map(s => {
+                        const pvz = state.pvzPoints.find(p => p.id === s.pvzId) || { brand: 'WB', name: 'ПВЗ' };
+                        const [y, m, d] = s.date.split('-').map(Number);
+                        const tot = calcShiftTotal(s);
+                        return `
+                            <div onclick="openDayModal('${s.date}')" class="tactile cursor-pointer glass-card rounded-2xl p-3 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-slate-200/70 dark:bg-white/[0.06] flex flex-col items-center justify-center font-mono">
+                                        <span class="text-xs font-black">${d}</span>
+                                        <span class="text-[9px] text-slate-400">${MONTHS_GENITIVE_RU[m-1].slice(0,3)}</span>
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center gap-1.5">
+                                            ${getBrandBadge(pvz.brand)}
+                                            <span class="text-xs font-extrabold">${pvz.name}</span>
+                                        </div>
+                                        <div class="text-[11px] text-slate-400 mt-0.5">
+                                            Ставка ${s.rate}₽ ${s.bonus ? `<span class="text-sky-400 font-bold">+${s.bonus}₽ премия</span>` : ''} ${s.penalty ? `<span class="text-rose-400 font-bold">-${s.penalty}₽ удерж.</span>` : ''}
+                                        </div>
+                                        ${s.note ? `<div class="text-[10px] text-purple-400 mt-0.5">${s.note}</div>` : ''}
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-black font-mono text-sm ${s.status === 'paid' ? 'text-emerald-400' : 'text-white'}">${formatMoney(tot)}</div>
+                                    <span class="text-[10px] font-bold ${s.status === 'paid' ? 'text-emerald-400' : s.status === 'worked' ? 'text-sky-400' : 'text-amber-400'}">
+                                        ${s.status === 'paid' ? '💸 Выплачено' : s.status === 'worked' ? '✅ Отработана' : '📅 В плане'}
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function closeBatchModal() {
+            const m = document.getElementById('batchModal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        }
+
+        function updateBatchDefaultRate() {
+            const emp = state.employees.find(e => e.id === document.getElementById('batchEmpSelect').value);
+            if (emp) document.getElementById('batchRateInput').value = emp.defaultRate;
+        }
+
+        function applyBatchSchedule(e) {
+            e.preventDefault();
+            const pvzId = document.getElementById('batchPvzSelect').value;
+            const employeeId = document.getElementById('batchEmpSelect').value;
+            const pattern = document.getElementById('batchPatternSelect').value;
+            const rate = Number(document.getElementById('batchRateInput').value) || 2600;
+            const startDay = Math.max(1, Number(document.getElementById('batchStartDay').value) || 1);
+            const daysInMonth = new Date(state.currentYear, state.currentMonth + 1, 0).getDate();
+            const endDay = Math.min(daysInMonth, Number(document.getElementById('batchEndDay').value) || daysInMonth);
+            const clearExisting = document.getElementById('batchClearExisting').checked;
+
+            if (clearExisting) {
+                state.shifts = state.shifts.filter(s => {
+                    const [y, m, d] = s.date.split('-').map(Number);
+                    const inRange = y === state.currentYear && (m - 1) === state.currentMonth && d >= startDay && d <= endDay;
+                    return !(inRange && s.pvzId === pvzId && s.employeeId === employeeId);
+                });
+            }
+
+            let count = 0;
+            for (let day = startDay; day <= endDay; day++) {
+                const offset = day - startDay;
+                let work = false;
+                if (pattern === '2-2') work = (offset % 4) < 2;
+                else if (pattern === '3-3') work = (offset % 6) < 3;
+                else if (pattern === '1-1') work = (offset % 2) === 0;
+                else if (pattern === '5-2') {
+                    const dow = new Date(state.currentYear, state.currentMonth, day).getDay();
+                    work = dow >= 1 && dow <= 5;
+                } else if (pattern === '2-5') {
+                    const dow = new Date(state.currentYear, state.currentMonth, day).getDay();
+                    work = dow === 0 || dow === 6;
+                }
+
+                if (work) {
+                    const dateStr = formatDateKey(state.currentYear, state.currentMonth, day);
+                    state.shifts.push({
+                        id: 'sh_auto_' + Date.now() + '_' + day,
+                        date: dateStr,
+                        pvzId, employeeId, rate, hours: 12, bonus: 0, penalty: 0,
+                        status: 'planned',
+                        note: `График ${pattern.replace('-', '/')}`
+                    });
+                    count++;
+                }
+            }
+
+            saveState();
+            closeBatchModal();
+            renderAll(true);
+            fireConfetti();
+            showToast(`Расписание готово! Добавлено ${count} смен`);
+        }
+
+        // ==========================================================
+        // STAFF (MANAGER) & SHIFT SWAP MARKETPLACE (EMPLOYEE)
+        // ==========================================================
+        function renderEmployees() {
+            // Render Manager Swap Approvals Box
+            const swapBox = document.getElementById('managerSwapApprovalsBox');
+            const swapShifts = getFilteredMonthShifts().filter(s => s.swapRequested);
+            if (swapShifts.length > 0) {
+                swapBox.classList.remove('hidden');
+                swapBox.innerHTML = `
+                    <div class="p-3.5 rounded-3xl bg-rose-500/10 border border-rose-500/30 space-y-2.5">
+                        <div class="text-xs font-extrabold text-rose-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-retweet"></i> Активные запросы на подмену (${swapShifts.length})
+                        </div>
+                        ${swapShifts.map(s => {
+                            const emp = state.employees.find(e => e.id === s.employeeId) || { name: 'Оператор' };
+                            const pvz = state.pvzPoints.find(p => p.id === s.pvzId) || { brand: 'WB', name: 'ПВЗ' };
+                            return `
+                                <div class="p-2.5 rounded-2xl bg-black/25 flex items-center justify-between gap-2 text-xs">
+                                    <div>
+                                        <span class="font-extrabold">${s.date}</span> • ${getBrandBadge(pvz.brand)} ${pvz.name}
+                                        <div class="text-[11px] text-slate-300">Просит замену: <b>${emp.name}</b></div>
+                                    </div>
+                                    <button onclick="openDayModal('${s.date}')" class="tactile px-3 py-1.5 rounded-xl bg-rose-500 text-white text-[11px] font-extrabold">
+                                        Назначить замену
+                                    </button>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            } else {
+                swapBox.classList.add('hidden');
+            }
+
+            const list = document.getElementById('employeesList');
+            list.innerHTML = state.employees.map(emp => `
+                <div class="glass-card rounded-3xl p-3.5 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-black text-sm shadow-md" style="background-color: ${emp.color}">
+                            ${emp.name.slice(0,2).toUpperCase()}
+                        </div>
+                        <div>
+                            <div class="font-extrabold text-sm">${emp.name}</div>
+                            <div class="text-xs font-mono font-bold text-emerald-500">${formatMoney(emp.defaultRate)} / смена</div>
+                            <div class="text-[11px] text-slate-400">${emp.phone || 'Оператор ПВЗ'}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="selectRoleEmployee('${emp.id}')" title="Войти как этот сотрудник" class="tactile px-2.5 py-1.5 rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/25 text-[10px] font-extrabold">
+                            <i class="fa-solid fa-eye mr-1"></i>Кабинет
+                        </button>
+                        <button onclick="openEmployeeModal('${emp.id}')" class="tactile w-8 h-8 rounded-xl bg-slate-200/70 dark:bg-white/10 flex items-center justify-center text-xs"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteEmployee('${emp.id}')" class="tactile w-8 h-8 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center text-xs"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Render Employee Swaps Marketplace View
+            renderEmployeeSwapsMarketplace();
+        }
+
+        function renderEmployeeSwapsMarketplace() {
+            const container = document.getElementById('employeeSwapsView');
+            const activeEmp = getActiveEmployee();
+            if (!activeEmp) return;
+
+            const openSwaps = getFilteredMonthShifts().filter(s => s.swapRequested);
+
+            container.innerHTML = `
+                <div class="glass-card rounded-3xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] font-extrabold uppercase tracking-wider text-rose-400">Биржа смен ПВЗ</span>
+                            <h3 class="font-black text-base">Доступные подмены и доп. смены</h3>
+                            <p class="text-xs text-slate-400">Выручите коллегу и заработайте дополнительно по ставке ${formatMoney(activeEmp.defaultRate)}</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-2xl bg-rose-500/15 text-rose-400 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-retweet"></i>
+                        </div>
+                    </div>
+
+                    ${openSwaps.length === 0 ? `
+                        <div class="p-4 rounded-2xl bg-slate-100/70 dark:bg-white/[0.03] text-center text-xs text-slate-400">
+                            Сейчас открытых запросов на подмену нет. Вы можете запросить подмену на свою смену прямо в календаре.
+                        </div>
+                    ` : openSwaps.map(s => {
+                        const emp = state.employees.find(e => e.id === s.employeeId) || { name: 'Оператор', color: '#64748b' };
+                        const pvz = state.pvzPoints.find(p => p.id === s.pvzId) || { brand: 'WB', name: 'ПВЗ' };
+                        const isMine = s.employeeId === activeEmp.id;
+                        return `
+                            <div class="p-3.5 rounded-2xl bg-slate-100 dark:bg-white/[0.05] border border-rose-500/30 flex items-center justify-between gap-2">
+                                <div>
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="font-mono font-black text-xs text-rose-400">${s.date}</span>
+                                        ${getBrandBadge(pvz.brand)}
+                                        <span class="text-xs font-bold">${pvz.name}</span>
+                                    </div>
+                                    <div class="text-xs text-slate-300 mt-1">Ищет замену: <b>${emp.name}</b></div>
+                                    <div class="text-[11px] font-mono text-emerald-400 font-bold">Оплата за выход: ${formatMoney(activeEmp.defaultRate)}</div>
+                                </div>
+                                ${isMine ? `
+                                    <button onclick="employeeToggleSwap('${s.id}')" class="tactile px-3 py-2 rounded-xl bg-slate-700 text-white text-xs font-bold">
+                                        Отменить
+                                    </button>
+                                ` : `
+                                    <button onclick="employeeTakeShift('${s.id}')" class="tactile px-3.5 py-2 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black shadow-lg shadow-emerald-500/20">
+                                        🙋‍♂️ Выйти за коллегу
+                                    </button>
+                                `}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div class="glass-card rounded-3xl p-4 space-y-2.5">
+                    <h4 class="font-extrabold text-sm">Команда операторов сети</h4>
+                    ${state.employees.map(emp => `
+                        <div class="flex items-center justify-between py-1.5 border-b border-slate-200/50 dark:border-white/[0.05] last:border-none">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-7 h-7 rounded-lg text-white text-[10px] font-black flex items-center justify-center" style="background-color: ${emp.color}">${emp.name.slice(0,2).toUpperCase()}</span>
+                                <div>
+                                    <div class="text-xs font-bold">${emp.name} ${emp.id === activeEmp.id ? '<span class="text-[10px] text-sky-400">(Вы)</span>' : ''}</div>
+                                    <div class="text-[10px] text-slate-400">${emp.phone || 'Оператор ПВЗ'}</div>
+                                </div>
+                            </div>
+                            ${emp.id !== activeEmp.id ? `
+                                <button onclick="selectRoleEmployee('${emp.id}')" class="text-[10px] font-bold text-purple-400 hover:underline">Переключить</button>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function payAllEmployee(empId) {
+            const prefix = `${state.currentYear}-${String(state.currentMonth + 1).padStart(2, '0')}-`;
+            state.shifts.forEach(s => {
+                if (s.date.startsWith(prefix) && s.employeeId === empId && (state.selectedPvzId === 'all' || s.pvzId === state.selectedPvzId)) {
+                    s.status = 'paid';
+                }
+            });
+            saveState();
+            renderAll(false);
+            fireConfetti();
+            showToast('Зарплата выплачена полностью!');
+        }
+
+        function copyPayslip(empId) {
+            const emp = state.employees.find(e => e.id === empId);
+            if (!emp) return;
+            const shifts = getFilteredMonthShifts().filter(s => s.employeeId === empId);
+            let base = 0, bonus = 0, penalty = 0, paid = 0, unpaid = 0;
+            shifts.forEach(s => {
+                const tot = calcShiftTotal(s);
+                base += Number(s.rate) || 0;
+                bonus += Number(s.bonus) || 0;
+                penalty += Number(s.penalty) || 0;
+                if (s.status === 'paid') paid += tot;
+                else unpaid += tot;
+            });
+
+            const receipt = [
+                `📦 РАСЧЕТНЫЙ ЛИСТ ПВЗ PRO`,
+                `🗓 Период: ${MONTHS_RU[state.currentMonth]} ${state.currentYear}`,
+                `👤 Оператор: ${emp.name}`,
+                `━━━━━━━━━━━━━━━━━━`,
+                `✅ Количество смен: ${shifts.length}`,
+                `💵 По ставке: ${formatMoney(base)}`,
+                bonus > 0 ? `🎁 Премии: +${formatMoney(bonus)}` : null,
+                penalty > 0 ? `⚠️ Удержания: -${formatMoney(penalty)}` : null,
+                `💰 ИТОГО НАЧИСЛЕНО: ${formatMoney(base + bonus - penalty)}`,
+                `💸 Выплачено: ${formatMoney(paid)}`,
+                `⏳ Остаток к выплате: ${formatMoney(unpaid)}`
+            ].filter(Boolean).join('\n');
+
+            const ta = document.createElement('textarea');
+            ta.value = receipt;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+            showToast('Чек скопирован для отправки в Telegram!');
+        }
+
+        // ==========================================================
+        // STAFF & ANALYTICS RENDER
+        // ==========================================================
+        // SYNC MODAL (SHARE SCHEDULE CODE BETWEEN MANAGER & STAFF)
+        // ==========================================================
+        function openSyncModal() {
+            const m = document.getElementById('syncModal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+
+        function closeSyncModal() {
+            const m = document.getElementById('syncModal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        }
+
+        function copySyncCode() {
+            const payload = {
+                pvzPoints: state.pvzPoints,
+                employees: state.employees,
+                shifts: state.shifts
+            };
+            const code = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+            const ta = document.createElement('textarea');
+            ta.value = code;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+            showToast('Код графика скопирован! Отправьте его сотрудникам в чат');
+        }
+
+        function applySyncCode() {
+            const raw = document.getElementById('syncCodeInput').value.trim();
+            if (!raw) return showToast('Вставьте код графика в поле');
+            try {
+                const decoded = JSON.parse(decodeURIComponent(escape(atob(raw))));
+                if (decoded.pvzPoints && decoded.employees && decoded.shifts) {
+                    state.pvzPoints = decoded.pvzPoints;
+                    state.employees = decoded.employees;
+                    state.shifts = decoded.shifts;
+                    saveState();
+                    closeSyncModal();
+                    closeRoleOnboarding();
+                    renderAll(true);
+                    fireConfetti();
+                    showToast('График от управляющего успешно синхронизирован!');
+                }
+            } catch (e) {
+                showToast('Неверный формат кода синхронизации', 'fa-triangle-exclamation');
+            }
+        }
+
+        function resetDemoData() {
+            state = { ...state, ...createDefaultData(), hasCompletedOnboarding: false };
+            saveState();
+            renderAll(true);
+            openRoleOnboarding(false);
+            showToast('Демо-данные сброшены! Выберите роль');
+        }
+
+        function renderAll(animateCascade = false) {
+            applyBrandTheme();
+            renderPvzFilterBar();
+            renderQuickPaintPalette();
+            renderCalendar(animateCascade);
+            renderPayroll();
+            renderEmployees();
+            renderSettingsAndAnalytics();
+        }
+
+        window.onload = function() {
+            loadState();
+            renderAll(true);
+            // Show role selection screen on first launch
+            if (!state.hasCompletedOnboarding) {
+                openRoleOnboarding(false);
+            }
+        };
+    </script>
+</body>
+</html>
